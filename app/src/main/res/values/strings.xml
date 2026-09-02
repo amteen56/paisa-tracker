@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Paisa</string>
+
+    <!-- Bottom navigation -->
+    <string name="nav_home">Home</string>
+    <string name="nav_expenses">Expenses</string>
+    <string name="nav_reports">Reports</string>
+    <string name="nav_more">More</string>
+    <string name="add_transaction">Add transaction</string>
+
+    <!-- Screen titles -->
+    <string name="title_home">Home</string>
+    <string name="title_expenses">Transactions</string>
+    <string name="title_reports">Reports</string>
+    <string name="title_more">More</string>
+    <string name="title_add_expense">Add Expense</string>
+    <string name="title_add_income">Add Income</string>
+    <string name="title_edit_transaction">Edit Transaction</string>
+    <string name="title_transaction_details">Transaction</string>
+    <string name="title_categories">Categories</string>
+    <string name="title_budgets">Budgets</string>
+    <string name="title_calendar">Calendar</string>
+    <string name="title_currencies">Currencies</string>
+    <string name="title_exchange_rates">Exchange Rates</string>
+    <string name="title_payment_methods">Payment Methods</string>
+    <string name="title_backup">Import &amp; Export</string>
+    <string name="title_settings">Settings</string>
+    <string name="title_about">About</string>
+
+    <!-- Common actions -->
+    <string name="action_back">Back</string>
+    <string name="action_save">Save</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_edit">Edit</string>
+
+    <!-- Placeholder shown by not-yet-implemented screens -->
+    <string name="coming_soon">Coming soon</string>
+
+    <!-- Privacy -->
+    <string name="privacy_statement">Your financial data is stored locally on your device. The application does not require an account or send financial information to a remote server.</string>
+</resources>

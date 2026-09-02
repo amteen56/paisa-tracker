@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Pre-Compose window background, matched to the light scheme's surface. -->
+    <color name="window_background">#FCF8F8</color>
+    <color name="ic_launcher_background">#1F6E4E</color>
+</resources>

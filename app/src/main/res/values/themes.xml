@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Minimal XML theme. All real theming lives in Compose (ui/theme/Theme.kt);
+      this exists only so the Activity has a window background and no ActionBar
+      before Compose takes over.
+    -->
+    <style name="Theme.Paisa" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowBackground">@color/window_background</item>
+    </style>
+</resources>

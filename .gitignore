@@ -1,30 +1,37 @@
-# Dependencies
-node_modules/
+*.iml
+.gradle/
 
-# Build output
-dist/
-build/
-out/
+# Android Studio / IntelliJ — machine-specific, regenerated on import.
+# Ignored wholesale rather than file-by-file: Studio adds new files here with
+# every release, and none of them are needed to build the project.
+/.idea/
 
-# Environment / secrets
-.env
-.env.*
-!.env.example
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
 
-# Logs
+# Keystores / signing — never commit
+*.jks
+*.keystore
+keystore.properties
+signing.properties
+
+# Build outputs
+/app/build/
+/app/release/
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+
+# Logs & reports
 *.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+/app/build/reports/
 
-# Local databases
-*.sqlite
-*.sqlite3
-*.db
-
-# Editor / OS
-.vscode/
-.idea/
+# OS cruft
 Thumbs.db
-Desktop.ini
-*.swp
+desktop.ini

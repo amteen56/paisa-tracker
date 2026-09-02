@@ -1,0 +1,21 @@
+# Normalize text files in the repo, checkout native on Windows.
+* text=auto
+
+# The Gradle wrapper script is executed by a POSIX shell — CRLF breaks it
+# ("bad interpreter"), so it must stay LF even on Windows checkouts.
+gradlew text eol=lf
+*.sh    text eol=lf
+
+# Windows-only scripts stay CRLF.
+gradlew.bat text eol=crlf
+*.bat       text eol=crlf
+
+# Binary — never touch line endings, never try to diff.
+*.jar   binary
+*.png   binary
+*.jpg   binary
+*.webp  binary
+*.ttf   binary
+*.otf   binary
+*.keystore binary
+*.jks   binary

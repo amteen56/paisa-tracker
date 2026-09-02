@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 11 and below (fullBackupContent).
+  app-data/ is the user's financial data; device-to-device transfer is allowed,
+  but the transient tmp/corrupt files are excluded.
+-->
+<full-backup-content>
+    <include domain="file" path="app-data" />
+    <exclude domain="file" path="app-data/backup" />
+</full-backup-content>
