@@ -11,6 +11,15 @@ enum class CategoryScope {
         INCOME -> type.isIncome
         BOTH -> true
     }
+
+    /**
+     * Whether a category of this scope belongs on a list showing [tab].
+     *
+     * A `BOTH` category appears under Expense *and* Income, which is the point of
+     * it — "Gifts" is money that moves in either direction for many people.
+     */
+    fun overlaps(tab: CategoryScope): Boolean =
+        this == BOTH || tab == BOTH || this == tab
 }
 
 data class Subcategory(

@@ -30,9 +30,26 @@ object Routes {
 
     // --- Categories --------------------------------------------------------
     const val CATEGORIES = "categories"
-    const val CATEGORY_EDIT_ROUTE = "categories/edit?id={id}"
-    fun categoryEdit(id: String? = null) =
-        if (id == null) "categories/edit" else "categories/edit?id=$id"
+
+    /**
+     * Both arguments are optional. `id` absent means "new"; `scope` carries which
+     * tab the user was on, so a category created from the Income tab starts as
+     * income rather than making them fix it after the fact.
+     */
+    const val CATEGORY_EDIT_ROUTE = "categories/edit?id={id}&scope={scope}"
+    const val ARG_SCOPE = "scope"
+
+    fun categoryEdit(id: String? = null, scope: String? = null): String {
+        val params = buildList {
+            if (id != null) add("id=$id")
+            if (scope != null) add("scope=$scope")
+        }
+        return if (params.isEmpty()) {
+            "categories/edit"
+        } else {
+            "categories/edit?" + params.joinToString("&")
+        }
+    }
 
     // --- Finance -----------------------------------------------------------
     const val BUDGETS = "budgets"

@@ -99,7 +99,7 @@ class AddEditTransactionViewModel(
                             amountInput = amountToInput(record.amountMinor, details.currency.decimalDigits),
                             currency = details.currency,
                             currencies = table.active,
-                            categories = categoriesFor(record.type),
+                            categories = categoriesFor(record.type, record.categoryId),
                             selectedCategoryId = record.categoryId,
                             selectedSubcategoryId = record.subcategoryId,
                             description = record.description,
@@ -180,7 +180,7 @@ class AddEditTransactionViewModel(
     private fun onTypeChanged(type: TransactionType) {
         _uiState.update { state ->
             if (state.type == type) return@update state
-            val categories = categoriesFor(type)
+            val categories = categoriesFor(type, state.selectedCategoryId)
             // An expense category is not valid for income, so a switch clears the
             // selection rather than silently keeping an inapplicable one.
             val keepCategory = state.selectedCategoryId
@@ -194,8 +194,33 @@ class AddEditTransactionViewModel(
         }
     }
 
-    private fun categoriesFor(type: TransactionType): List<Category> =
-        allCategories.filter { !it.archived && it.applicableTo.allows(type) }
+    /**
+     * The categories to offer for [type].
+     *
+     * Archived ones are out of the picker, with one exception: the category
+     * [selectedId] names stays in even when archived, so editing an old transaction
+     * whose category has since been archived still shows what it is filed under.
+     * Otherwise the chip row would render with nothing selected and the user would
+     * have no way to tell the selection was still intact. See CLAUDE.md rule 4 —
+     * archived items must keep rendering correctly.
+     */
+    private fun categoriesFor(
+        type: TransactionType,
+        selectedId: String? = null,
+    ): List<Category> {
+        val active = allCategories.filter { !it.archived && it.applicableTo.allows(type) }
+        // Archiving is forgiven; inapplicability is not. An expense-only category
+        // must still drop out when the form switches to income, or a type switch
+        // would leave an impossible selection in place.
+        val selected = selectedId
+            ?.let { id -> allCategories.firstOrNull { it.id == id } }
+            ?.takeIf { it.applicableTo.allows(type) }
+        return if (selected != null && active.none { it.id == selected.id }) {
+            active + selected
+        } else {
+            active
+        }
+    }
 
     private fun save() {
         val state = _uiState.value

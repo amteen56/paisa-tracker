@@ -1,6 +1,6 @@
 # Project Status
 
-**Last updated:** 2026-09-03
+**Last updated:** 2026-09-03 (Phase 4)
 **Repo:** `paisa-tracker` · **Package:** `com.amteen.paisa` · **Branch:** `main`
 
 ---
@@ -13,8 +13,8 @@
 | **1** | Gradle setup, theme, navigation skeleton | ✅ **Done — `BUILD SUCCESSFUL`** |
 | **2** | Data layer (models, Money, JsonFileStore, repositories) | ✅ **Done — 55 tests green** |
 | **3** | Transactions (add/edit/delete/list/search) | ✅ **Done — 81 tests green, verified on device** |
-| 4 | Categories & subcategories | ⬜ **Next** |
-| 5 | Dashboard | ⬜ |
+| **4** | Categories, subcategories & payment methods | ✅ **Done — 120 tests green, lint clean** |
+| 5 | Dashboard | ⬜ **Next** |
 | 6 | Budgets + local alerts | ⬜ |
 | 7 | Calendar | ⬜ |
 | 8 | Reports & charts | ⬜ |
@@ -29,12 +29,13 @@ Full phase detail: [PROJECT_PLAN.md](PROJECT_PLAN.md).
 
 ## Commits
 
-One commit per phase. Nothing is pushed yet — the remote has no `main` branch.
+One commit per phase, pushed to `origin/main` as soon as it is made.
 
 | Commit | Phase |
 |---|---|
 | `cf67f8a` | Phase 0–1: docs, Gradle setup, Material 3 theme, navigation skeleton |
 | `8e3eee8` | Phase 2: data layer — money, file store, repositories |
+| `6dbd470` | Phase 3: transactions — add, edit, detail, history |
 
 Verify the identity before committing — this repo must **not** be authored by the global work
 account:
@@ -178,12 +179,77 @@ a real device is the only thing that finds it, which is why the definition of do
 
 ---
 
-## Next: Phase 4 — categories
+## What was built in Phase 4
 
-- Category and subcategory CRUD, icon and colour pickers, drag-to-reorder
-- The archive rule: hard delete only at reference count zero, otherwise offer Archive
-  (`TransactionRepository.countByCategory` already exists for exactly this)
-- Payment method management, same rules
+Categories, subcategories and payment methods — the setup screens that make the rest of the app
+configurable rather than fixed.
+
+- `domain/usecase/CategoryUseCases.kt` — save (with subcategory reconciliation), count references,
+  delete, archive, reorder
+- `domain/usecase/PaymentMethodUseCases.kt` — the same set, plus set/clear the default
+- `domain/usecase/ReferenceCounts.kt` — `ReferenceCount` and `RemovalOutcome`, shared by both
+- `ui/screen/category/` — list (Expense/Income tabs, drag reorder, archived section) and editor
+  (name, scope, colour, icon, subcategory rows)
+- `ui/screen/paymentmethod/` — list plus an inline bottom-sheet editor and the default marker
+- `ui/components/DragDropList.kt` — hand-rolled long-press drag reordering for `LazyColumn`
+- `ui/components/IconPicker.kt`, `ColorPicker.kt`, `ui/theme/CategoryPalette.kt`
+
+**120 unit tests, all green** (39 new). Lint is clean.
+
+### Three decisions worth knowing about
+
+**Reference counting includes budgets, not just transactions.** A budget names a `categoryId` too,
+and a budget pointing at a deleted category is exactly as broken as a transaction pointing at one.
+`CountCategoryReferencesUseCase` counts both; there is a test that a category referenced *only* by
+a budget still blocks the delete, because counting transactions alone is the easy version of this
+bug.
+
+**Removing a subcategory in the editor may archive it rather than delete it.** The editor submits
+the list of rows the user wants; `SaveCategoryUseCase` diffs that against what is on disk and, for
+each removed row, asks whether any transaction still points at it. Referenced ones are kept with
+`archived = true` and listed back to the user under "Kept for your history" with a Restore button.
+Unreferenced ones are genuinely deleted. This is CLAUDE.md rule 4 applied one level down from
+categories.
+
+**Deleting or archiving a payment method clears it as the default.** `settings.json` names a
+`defaultPaymentMethodId`, and leaving it pointing at something archived would pre-select an option
+the user cannot see or change from the add screen.
+
+### Reordering, and why there are two ways to do it
+
+Drag-and-drop is written by hand in `DragDropList.kt` rather than pulled in as a dependency — the
+dependency list is deliberately tiny and this is the only place that needs it. It works in item
+**keys, not indices**, because a list with section headers and a trailing hint has indices that
+mean nothing to the data behind it.
+
+A long-press drag cannot be performed with TalkBack running, so it is never the only route:
+every row also carries Move up / Move down in its overflow menu and publishes the same two as
+semantics custom actions.
+
+The new order is held in the ViewModel and written once when the finger lifts, not on every swap —
+otherwise a drag across ten rows would be ten file writes for an order the user is still choosing.
+
+### Two fixes outside the phase's own scope
+
+**Archived items now stay visible in the form that already uses them.** Once categories can be
+archived, editing an older transaction whose category has since been archived would have rendered
+a chip row with nothing selected — the selection was intact, but invisible. Both
+`AddEditTransactionViewModel.categoriesFor` and `AddEditTransactionUiState.subcategories` now
+re-admit the currently-selected item even when archived. The type switch still drops a category
+that does not apply to the new type; archiving is forgiven, inapplicability is not.
+
+**The bottom navigation bar was overlapping list content.** `PaisaNavHost` discarded the outer
+`Scaffold`'s padding entirely, so the bar sat on top of the last row of any list. It now consumes
+the bottom inset. This was a pre-existing Phase 1 bug that Android lint flags as an error;
+`./gradlew lint` passes as of this phase.
+
+---
+
+## Next: Phase 5 — dashboard
+
+- Balance / income / expense card, today's spend, monthly average
+- Top categories, budget strip, recent transactions, quick actions
+- First screen where the hand-drawn `Canvas` work starts paying off
 
 The architectural rules every phase is held to are in [../CLAUDE.md](../CLAUDE.md) — money is never
 a `Double`, writes are always atomic, reads recover rather than crash, and a composable renders

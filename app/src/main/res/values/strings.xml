@@ -34,6 +34,67 @@
     <string name="action_cancel">Cancel</string>
     <string name="action_delete">Delete</string>
     <string name="action_edit">Edit</string>
+    <string name="action_archive">Archive</string>
+    <string name="action_restore">Restore</string>
+    <string name="action_move_up">Move up</string>
+    <string name="action_move_down">Move down</string>
+    <string name="action_expand">Expand</string>
+    <string name="action_collapse">Collapse</string>
+
+    <!-- Category scope -->
+    <string name="scope_expense">Expense</string>
+    <string name="scope_income">Income</string>
+    <string name="scope_both">Both</string>
+
+    <!-- Categories -->
+    <string name="category_add">New category</string>
+    <string name="category_new_title">New category</string>
+    <string name="category_edit_title">Edit category</string>
+    <string name="category_name_label">Name</string>
+    <string name="category_name_placeholder">Unnamed category</string>
+    <string name="category_applies_to">Applies to</string>
+    <string name="category_colour">Colour</string>
+    <string name="category_icon">Icon</string>
+    <string name="category_subcategories">Subcategories</string>
+    <string name="category_subcategories_hint">Optional. Useful when one category covers several kinds of spending.</string>
+    <string name="category_add_subcategory">Add subcategory</string>
+    <string name="category_subcategory_n">Subcategory %1$d</string>
+    <string name="category_remove_subcategory">Remove subcategory %1$s</string>
+    <string name="category_restore_subcategory">Restore subcategory %1$s</string>
+    <string name="category_archived_subcategories">Kept for your history</string>
+    <string name="category_archived_subcategories_hint">These are still used by past transactions, so they were archived instead of deleted.</string>
+    <string name="category_reorder_hint">Press and hold a category to drag it into a new order.</string>
+    <string name="category_no_subcategories">No subcategories</string>
+    <string name="category_archived_count">Archived (%1$d)</string>
+    <plurals name="category_subcategory_count">
+        <item quantity="one">%1$d subcategory</item>
+        <item quantity="other">%1$d subcategories</item>
+    </plurals>
+    <string name="category_actions_for">Actions for %1$s</string>
+    <string name="category_delete_title">Delete “%1$s”?</string>
+    <string name="category_delete_message">Nothing uses this category, so it can be removed for good. This cannot be undone.</string>
+    <string name="category_archive_title">Archive “%1$s”?</string>
+    <string name="category_archive_message">This category is used by %1$s, so it cannot be deleted. Archiving hides it from new entries while keeping your history correct.</string>
+    <string name="category_empty_title">No categories yet</string>
+    <string name="category_empty_message">Categories are how your spending gets grouped in reports. Add the first one to get started.</string>
+
+    <!-- Payment methods -->
+    <string name="payment_method_add">New method</string>
+    <string name="payment_method_new_title">New payment method</string>
+    <string name="payment_method_edit_title">Edit payment method</string>
+    <string name="payment_method_name_label">Name</string>
+    <string name="payment_method_is_default">Default</string>
+    <string name="payment_method_set_default">Make %1$s the default</string>
+    <string name="payment_method_clear_default">Stop using %1$s as the default</string>
+    <string name="payment_method_actions_for">Actions for %1$s</string>
+    <string name="payment_method_hint">The default is pre-selected when you add a transaction. Press and hold to reorder.</string>
+    <string name="payment_method_delete_title">Delete “%1$s”?</string>
+    <string name="payment_method_delete_message">No transaction uses this method, so it can be removed for good. This cannot be undone.</string>
+    <string name="payment_method_archive_title">Archive “%1$s”?</string>
+    <string name="payment_method_archive_message">This method is used by %1$s, so it cannot be deleted. Archiving hides it from new entries while keeping your history correct.</string>
+    <string name="payment_method_empty_title">No payment methods</string>
+    <string name="payment_method_empty_message">Add how you usually pay — cash, a card, a mobile wallet — so transactions can record it.</string>
+    <string name="payment_method_archived_count">Archived (%1$d)</string>
 
     <!-- Placeholder shown by not-yet-implemented screens -->
     <string name="coming_soon">Coming soon</string>

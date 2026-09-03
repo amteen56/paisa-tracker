@@ -16,7 +16,17 @@ import com.amteen.paisa.domain.repository.CurrencyRepository
 import com.amteen.paisa.domain.repository.PaymentMethodRepository
 import com.amteen.paisa.domain.repository.SettingsRepository
 import com.amteen.paisa.domain.repository.TransactionRepository
+import com.amteen.paisa.domain.usecase.ArchiveCategoryUseCase
+import com.amteen.paisa.domain.usecase.ArchivePaymentMethodUseCase
+import com.amteen.paisa.domain.usecase.CountCategoryReferencesUseCase
+import com.amteen.paisa.domain.usecase.DeleteCategoryUseCase
+import com.amteen.paisa.domain.usecase.DeletePaymentMethodUseCase
 import com.amteen.paisa.domain.usecase.DeleteTransactionUseCase
+import com.amteen.paisa.domain.usecase.ReorderCategoriesUseCase
+import com.amteen.paisa.domain.usecase.ReorderPaymentMethodsUseCase
+import com.amteen.paisa.domain.usecase.SaveCategoryUseCase
+import com.amteen.paisa.domain.usecase.SavePaymentMethodUseCase
+import com.amteen.paisa.domain.usecase.SetDefaultPaymentMethodUseCase
 import com.amteen.paisa.domain.usecase.GetTransactionDetailsUseCase
 import com.amteen.paisa.domain.usecase.ObserveTransactionsUseCase
 import com.amteen.paisa.domain.usecase.SaveTransactionUseCase
@@ -73,6 +83,45 @@ class AppContainer(context: Context) {
     val saveTransaction = SaveTransactionUseCase(transactionRepository)
 
     val deleteTransaction = DeleteTransactionUseCase(transactionRepository)
+
+    // Categories and payment methods. Reference counting sits behind its own use
+    // case because both the list screen (to choose which dialog to show) and the
+    // delete use case (to enforce it) need the same answer.
+    val countCategoryReferences = CountCategoryReferencesUseCase(
+        transactions = transactionRepository,
+        budgets = budgetRepository,
+    )
+
+    val saveCategory = SaveCategoryUseCase(
+        categories = categoryRepository,
+        transactions = transactionRepository,
+    )
+
+    val deleteCategory = DeleteCategoryUseCase(
+        categories = categoryRepository,
+        countReferences = countCategoryReferences,
+    )
+
+    val archiveCategory = ArchiveCategoryUseCase(categoryRepository)
+
+    val reorderCategories = ReorderCategoriesUseCase(categoryRepository)
+
+    val savePaymentMethod = SavePaymentMethodUseCase(paymentMethodRepository)
+
+    val deletePaymentMethod = DeletePaymentMethodUseCase(
+        paymentMethods = paymentMethodRepository,
+        transactions = transactionRepository,
+        settings = settingsRepository,
+    )
+
+    val archivePaymentMethod = ArchivePaymentMethodUseCase(
+        paymentMethods = paymentMethodRepository,
+        settings = settingsRepository,
+    )
+
+    val reorderPaymentMethods = ReorderPaymentMethodsUseCase(paymentMethodRepository)
+
+    val setDefaultPaymentMethod = SetDefaultPaymentMethodUseCase(settingsRepository)
 
     val getTransactionDetails = GetTransactionDetailsUseCase(
         transactions = transactionRepository,

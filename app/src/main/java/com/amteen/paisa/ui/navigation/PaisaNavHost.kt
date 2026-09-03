@@ -6,6 +6,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -30,11 +31,18 @@ import androidx.navigation.navArgument
 import com.amteen.paisa.R
 import com.amteen.paisa.di.LocalAppContainer
 import com.amteen.paisa.di.ViewModelFactories
+import com.amteen.paisa.domain.model.CategoryScope
 import com.amteen.paisa.domain.model.TransactionType
 import com.amteen.paisa.ui.components.PlaceholderScreen
+import com.amteen.paisa.ui.screen.category.CategoryEditScreen
+import com.amteen.paisa.ui.screen.category.CategoryEditViewModel
+import com.amteen.paisa.ui.screen.category.CategoryListScreen
+import com.amteen.paisa.ui.screen.category.CategoryListViewModel
 import com.amteen.paisa.ui.screen.history.TransactionHistoryScreen
 import com.amteen.paisa.ui.screen.history.TransactionHistoryViewModel
 import com.amteen.paisa.ui.screen.more.MoreScreen
+import com.amteen.paisa.ui.screen.paymentmethod.PaymentMethodScreen
+import com.amteen.paisa.ui.screen.paymentmethod.PaymentMethodViewModel
 import com.amteen.paisa.ui.screen.transaction.AddEditTransactionScreen
 import com.amteen.paisa.ui.screen.transaction.AddEditTransactionViewModel
 import com.amteen.paisa.ui.screen.transaction.TransactionDetailScreen
@@ -79,7 +87,13 @@ fun PaisaNavHost(
         NavHost(
             navController = navController,
             startDestination = Routes.HOME,
-            modifier = Modifier.fillMaxSize(),
+            // Only the bottom inset is consumed here. This Scaffold contributes no
+            // top bar — every screen brings its own, and handles its own status-bar
+            // inset — but it does own the bottom navigation, and without this the
+            // bar sits on top of the last row of whatever list is showing.
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = innerPadding.calculateBottomPadding()),
         ) {
             // --- Bottom navigation ---------------------------------------
             composable(Routes.HOME) {
@@ -196,9 +210,54 @@ fun PaisaNavHost(
 
             // --- Categories ------------------------------------------------
             composable(Routes.CATEGORIES) {
-                PlaceholderScreen(
-                    title = stringResource(R.string.title_categories),
-                    phaseNote = "Category and subcategory management arrives in Phase 4.",
+                val container = LocalAppContainer.current
+                val viewModel: CategoryListViewModel = viewModel(
+                    factory = ViewModelFactories.categoryList(container),
+                )
+                val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+                CategoryListScreen(
+                    state = state,
+                    onEvent = viewModel::onEvent,
+                    onAddCategory = {
+                        // Carry the current tab through, so the new category starts
+                        // out applying to the type the user was looking at.
+                        navController.navigate(Routes.categoryEdit(scope = state.scope.name))
+                    },
+                    onEditCategory = { navController.navigate(Routes.categoryEdit(id = it)) },
+                    onBack = navController::popBackStack,
+                )
+            }
+
+            composable(
+                route = Routes.CATEGORY_EDIT_ROUTE,
+                arguments = listOf(
+                    navArgument(Routes.ARG_ID) {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                    navArgument(Routes.ARG_SCOPE) {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                ),
+            ) { entry ->
+                val container = LocalAppContainer.current
+                val id = entry.arguments?.getString(Routes.ARG_ID)
+                val scope = entry.arguments?.getString(Routes.ARG_SCOPE)
+                    ?.let { name -> CategoryScope.entries.firstOrNull { it.name == name } }
+                    ?: CategoryScope.EXPENSE
+
+                val viewModel: CategoryEditViewModel = viewModel(
+                    factory = ViewModelFactories.categoryEdit(container, id, scope),
+                )
+                val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+                CategoryEditScreen(
+                    state = state,
+                    onEvent = viewModel::onEvent,
                     onBack = navController::popBackStack,
                 )
             }
@@ -233,9 +292,15 @@ fun PaisaNavHost(
                 )
             }
             composable(Routes.PAYMENT_METHODS) {
-                PlaceholderScreen(
-                    title = stringResource(R.string.title_payment_methods),
-                    phaseNote = "Payment method management arrives in Phase 4.",
+                val container = LocalAppContainer.current
+                val viewModel: PaymentMethodViewModel = viewModel(
+                    factory = ViewModelFactories.paymentMethods(container),
+                )
+                val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+                PaymentMethodScreen(
+                    state = state,
+                    onEvent = viewModel::onEvent,
                     onBack = navController::popBackStack,
                 )
             }

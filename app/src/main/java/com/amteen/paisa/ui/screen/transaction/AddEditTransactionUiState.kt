@@ -54,8 +54,23 @@ data class AddEditTransactionUiState(
     val selectedCategory: Category?
         get() = categories.firstOrNull { it.id == selectedCategoryId }
 
+    /**
+     * The chips to offer. Archived subcategories stay out of the picker — except
+     * the one this transaction already uses, which must remain visible and
+     * selected. Dropping it would silently clear the user's choice while they were
+     * editing something else entirely.
+     */
     val subcategories: List<Subcategory>
-        get() = selectedCategory?.activeSubcategories.orEmpty()
+        get() {
+            val category = selectedCategory ?: return emptyList()
+            val active = category.activeSubcategories
+            val selected = category.subcategory(selectedSubcategoryId)
+            return if (selected != null && active.none { it.id == selected.id }) {
+                active + selected
+            } else {
+                active
+            }
+        }
 
     val selectedSubcategory: Subcategory?
         get() = subcategories.firstOrNull { it.id == selectedSubcategoryId }
