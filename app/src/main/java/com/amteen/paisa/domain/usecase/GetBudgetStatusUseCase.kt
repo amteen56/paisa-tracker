@@ -1,0 +1,116 @@
+package com.amteen.paisa.domain.usecase
+
+import com.amteen.paisa.domain.model.Budget
+import com.amteen.paisa.domain.model.BudgetProgress
+import com.amteen.paisa.domain.model.Category
+import com.amteen.paisa.domain.model.Currency
+import com.amteen.paisa.domain.model.CurrencyTable
+import com.amteen.paisa.domain.model.Subcategory
+import com.amteen.paisa.domain.model.Transaction
+import java.time.YearMonth
+
+/**
+ * A budget with its derived usage and the names needed to render it.
+ *
+ * [category] is nullable for the same reason it is on `TransactionDetails`: a budget
+ * must keep rendering even if its category stopped resolving, rather than taking the
+ * whole strip down with it.
+ */
+data class BudgetSummary(
+    val progress: BudgetProgress,
+    val category: Category?,
+    val subcategory: Subcategory?,
+    /**
+     * The budget's own currency, resolved here rather than by the screen. Formatting
+     * needs the real symbol and decimal digits — a code alone would render a rupee
+     * limit as "PKR 3,000.00" and a yen one with two decimal places it does not have.
+     */
+    val currency: Currency,
+) {
+    val id: String get() = progress.budget.id
+
+    /** "Food" for a category budget, "Food · Fast Food" for a subcategory one. */
+    val label: String
+        get() {
+            val categoryName = category?.name ?: "Uncategorised"
+            return subcategory?.let { "$categoryName · ${it.name}" } ?: categoryName
+        }
+}
+
+/**
+ * Budget usage, computed from transactions rather than stored.
+ *
+ * A running total on disk is how budget figures drift out of step with the ledger
+ * that produced them, so there is none — see CLAUDE.md rule 6.
+ *
+ * Every contributing expense is converted into the **budget's own currency** before
+ * being summed. A $50 dinner against a Rs. 20,000 grocery budget is 14,000 rupees of
+ * it, not 50 — comparing the bare numbers would under-report by a factor of 280. See
+ * CLAUDE.md rule 7.
+ *
+ * This takes its inputs as plain lists rather than repositories: the dashboard has
+ * already loaded the month it needs, and re-reading the same shard through a second
+ * flow would be both wasteful and a chance for the two figures to disagree.
+ */
+class GetBudgetStatusUseCase {
+
+    operator fun invoke(
+        budgets: List<Budget>,
+        transactions: List<Transaction>,
+        month: YearMonth,
+        table: CurrencyTable,
+        categories: List<Category> = emptyList(),
+    ): List<BudgetSummary> {
+        val applicable = budgets.filter { it.appliesTo(month) }
+        if (applicable.isEmpty()) return emptyList()
+
+        val categoryById = categories.associateBy { it.id }
+        // Income never counts against a spending limit, and neither does an expense
+        // from another month — a recurring budget is a *monthly* allowance.
+        val monthExpenses = transactions.filter {
+            it.type.isExpense && YearMonth.from(it.date) == month
+        }
+
+        return applicable
+            .map { budget ->
+                var spent = 0L
+                var mixed = false
+                for (record in monthExpenses) {
+                    if (!budget.covers(record)) continue
+                    if (record.currencyCode != budget.currencyCode) mixed = true
+                    spent += table.convert(record.money, budget.currencyCode).amountMinor
+                }
+                val category = categoryById[budget.categoryId]
+                BudgetSummary(
+                    progress = BudgetProgress(
+                        budget = budget,
+                        month = month,
+                        spentMinor = spent,
+                        mixedCurrency = mixed,
+                    ),
+                    category = category,
+                    subcategory = category?.subcategory(budget.subcategoryId),
+                    currency = table.currency(budget.currencyCode),
+                )
+            }
+            // Closest to its limit first: the strip is a warning surface, so the
+            // budget in trouble must not be the one scrolled off the end.
+            .sortedWith(
+                compareByDescending<BudgetSummary> { it.progress.percent }
+                    .thenBy { it.label },
+            )
+    }
+}
+
+/**
+ * Whether [record] counts against this budget.
+ *
+ * A budget naming a subcategory counts **only** that subcategory; one naming just a
+ * category counts every transaction filed under it, including those in its
+ * subcategories. That asymmetry is deliberate — a "Food" budget is the whole food
+ * allowance, while a "Food · Fast Food" budget is a limit on one slice of it.
+ */
+private fun Budget.covers(record: Transaction): Boolean {
+    if (record.categoryId != categoryId) return false
+    return subcategoryId == null || record.subcategoryId == subcategoryId
+}

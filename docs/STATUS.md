@@ -1,6 +1,6 @@
 # Project Status
 
-**Last updated:** 2026-09-03 (Phase 4)
+**Last updated:** 2026-09-03 (Phase 5)
 **Repo:** `paisa-tracker` · **Package:** `com.amteen.paisa` · **Branch:** `main`
 
 ---
@@ -14,8 +14,8 @@
 | **2** | Data layer (models, Money, JsonFileStore, repositories) | ✅ **Done — 55 tests green** |
 | **3** | Transactions (add/edit/delete/list/search) | ✅ **Done — 81 tests green, verified on device** |
 | **4** | Categories, subcategories & payment methods | ✅ **Done — 120 tests green, lint clean** |
-| 5 | Dashboard | ⬜ **Next** |
-| 6 | Budgets + local alerts | ⬜ |
+| **5** | Dashboard | ✅ **Done — 147 tests green, lint clean** |
+| 6 | Budgets + local alerts | ⬜ **Next** |
 | 7 | Calendar | ⬜ |
 | 8 | Reports & charts | ⬜ |
 | 9 | Currencies & manual exchange rates | ⬜ |
@@ -36,6 +36,7 @@ One commit per phase, pushed to `origin/main` as soon as it is made.
 | `cf67f8a` | Phase 0–1: docs, Gradle setup, Material 3 theme, navigation skeleton |
 | `8e3eee8` | Phase 2: data layer — money, file store, repositories |
 | `6dbd470` | Phase 3: transactions — add, edit, detail, history |
+| `3345dfa` | Phase 4: categories, subcategories and payment methods |
 
 Verify the identity before committing — this repo must **not** be authored by the global work
 account:
@@ -245,11 +246,78 @@ the bottom inset. This was a pre-existing Phase 1 bug that Android lint flags as
 
 ---
 
-## Next: Phase 5 — dashboard
+## What was built in Phase 5
 
-- Balance / income / expense card, today's spend, monthly average
-- Top categories, budget strip, recent transactions, quick actions
-- First screen where the hand-drawn `Canvas` work starts paying off
+The dashboard — the first screen the user sees, and the first that has to *interpret*
+their data rather than just list it.
+
+- `domain/usecase/GetDashboardSummaryUseCase.kt` — every figure on the screen, derived
+  in one pass over two month shards
+- `domain/usecase/GetBudgetStatusUseCase.kt` — budget usage, split out because Phase 6
+  needs exactly the same derivation
+- `ui/charts/DailySpendBars.kt` — the first hand-drawn `Canvas` work: a seven-day bar
+  chart and the share bar used by budgets and the category breakdown
+- `ui/screen/home/` — balance card, today / daily average, the week chart, budget strip,
+  top categories, recent transactions and quick actions
+
+**147 unit tests, all green** (27 new). Lint is clean.
+
+### Four decisions worth knowing about
+
+**The dashboard loads two month shards, not all of them.** The current month and the one
+before it. The previous month earns its place twice: the month-on-month comparison needs
+both sides, and for the first week of any month most of the seven-day window is last
+month. Older history stays on disk until a report asks for it, so startup cost does not
+grow with the size of the ledger.
+
+**"Daily average" rather than "monthly average".** The plan said monthly average, but a
+true one means loading every shard the user has ever written, which is exactly the cost
+the lazy-loading design exists to avoid — and averaged over a set of months where the
+current one is partial, the figure is not meaningful anyway. This month's spending
+divided by the days elapsed is cheap, honest, and more actionable. A real multi-month
+average belongs in Phase 8, where the user picks the period explicitly.
+
+**The month-on-month comparison is like-for-like.** Eleven days of this month are
+compared against the first eleven days of last month, not against last month's total.
+Comparing a part-month against a whole one would report a fall every single month, which
+is worse than saying nothing. When there is no previous spending to compare against, the
+screen says so instead of reporting "up 100%" — a jump from zero is not a percentage.
+
+**Budget usage is computed in the budget's own currency.** A $100 limit against a
+Rs. 2,800 expense is 10% used, not 2,800% — see CLAUDE.md rule 7. The budget's real
+`Currency` is resolved in the use case rather than the screen, because formatting needs
+the symbol and decimal digits: a code alone renders a rupee limit as "PKR 3,000.00" and
+gives yen two decimal places it does not have.
+
+### The chart, and why it is seven small canvases
+
+There is no charting dependency in this project, so the bars are `Canvas` draws. Each bar
+is its own small canvas inside a `Row` rather than one canvas spanning the chart: the day
+labels then lay themselves out with real text layout instead of hand-measured glyph
+positions, and each bar holds its own animation without the chart having to care how many
+bars there are.
+
+Bar heights are relative to the busiest day in the window, so the shape of a week reads
+the same whether the user spends hundreds or hundreds of thousands. That means the chart
+shows **proportion, not magnitude** — the figures beside it carry the actual amounts. A
+day with real spending never rounds away to an invisible bar, and the whole chart has a
+spoken alternative, because a bar chart conveys nothing to a screen reader.
+
+### The budget strip is built but cannot appear yet
+
+Nothing can create a budget until Phase 6, so `summary.budgets` is always empty on a real
+device today and the section renders nothing. The derivation, the four status thresholds
+and the currency handling are all in place and covered by tests — Phase 6 adds the
+editor, not the maths.
+
+---
+
+## Next: Phase 6 — budgets and local alerts
+
+- Budget CRUD, on top of the `GetBudgetStatusUseCase` written in Phase 5
+- Budget history and the four-state status surface
+- `BudgetAlertNotifier` firing at 75 / 90 / 100%, once per threshold per period
+- `POST_NOTIFICATIONS` requested on Android 13+ — still no `INTERNET` permission
 
 The architectural rules every phase is held to are in [../CLAUDE.md](../CLAUDE.md) — money is never
 a `Double`, writes are always atomic, reads recover rather than crash, and a composable renders

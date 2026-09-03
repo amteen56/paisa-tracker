@@ -8,6 +8,7 @@ import com.amteen.paisa.domain.model.TransactionType
 import com.amteen.paisa.ui.screen.category.CategoryEditViewModel
 import com.amteen.paisa.ui.screen.category.CategoryListViewModel
 import com.amteen.paisa.ui.screen.history.TransactionHistoryViewModel
+import com.amteen.paisa.ui.screen.home.HomeViewModel
 import com.amteen.paisa.ui.screen.paymentmethod.PaymentMethodViewModel
 import com.amteen.paisa.ui.screen.transaction.AddEditTransactionViewModel
 import com.amteen.paisa.ui.screen.transaction.TransactionDetailViewModel
@@ -95,6 +96,19 @@ object ViewModelFactories {
                 archivePaymentMethod = container.archivePaymentMethod,
                 reorderPaymentMethods = container.reorderPaymentMethods,
                 setDefaultPaymentMethod = container.setDefaultPaymentMethod,
+            )
+        }
+    }
+
+    fun home(container: AppContainer): ViewModelProvider.Factory = viewModelFactory {
+        initializer {
+            HomeViewModel(
+                getDashboardSummary = container.getDashboardSummary,
+                categoryRepository = container.categoryRepository,
+                paymentMethodRepository = container.paymentMethodRepository,
+                currencyRepository = container.currencyRepository,
+                settingsRepository = container.settingsRepository,
+                budgetRepository = container.budgetRepository,
             )
         }
     }

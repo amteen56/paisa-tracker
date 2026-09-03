@@ -22,6 +22,8 @@ import com.amteen.paisa.domain.usecase.CountCategoryReferencesUseCase
 import com.amteen.paisa.domain.usecase.DeleteCategoryUseCase
 import com.amteen.paisa.domain.usecase.DeletePaymentMethodUseCase
 import com.amteen.paisa.domain.usecase.DeleteTransactionUseCase
+import com.amteen.paisa.domain.usecase.GetBudgetStatusUseCase
+import com.amteen.paisa.domain.usecase.GetDashboardSummaryUseCase
 import com.amteen.paisa.domain.usecase.ReorderCategoriesUseCase
 import com.amteen.paisa.domain.usecase.ReorderPaymentMethodsUseCase
 import com.amteen.paisa.domain.usecase.SaveCategoryUseCase
@@ -122,6 +124,21 @@ class AppContainer(context: Context) {
     val reorderPaymentMethods = ReorderPaymentMethodsUseCase(paymentMethodRepository)
 
     val setDefaultPaymentMethod = SetDefaultPaymentMethodUseCase(settingsRepository)
+
+    // Budget status is its own use case rather than being folded into the dashboard:
+    // Phase 6's budget screen needs exactly the same derivation, and two copies of a
+    // money calculation is two chances to disagree.
+    val getBudgetStatus = GetBudgetStatusUseCase()
+
+    val getDashboardSummary = GetDashboardSummaryUseCase(
+        transactions = transactionRepository,
+        categories = categoryRepository,
+        paymentMethods = paymentMethodRepository,
+        currencies = currencyRepository,
+        settings = settingsRepository,
+        budgets = budgetRepository,
+        budgetStatus = getBudgetStatus,
+    )
 
     val getTransactionDetails = GetTransactionDetailsUseCase(
         transactions = transactionRepository,

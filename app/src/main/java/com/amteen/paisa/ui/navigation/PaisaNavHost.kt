@@ -40,6 +40,8 @@ import com.amteen.paisa.ui.screen.category.CategoryListScreen
 import com.amteen.paisa.ui.screen.category.CategoryListViewModel
 import com.amteen.paisa.ui.screen.history.TransactionHistoryScreen
 import com.amteen.paisa.ui.screen.history.TransactionHistoryViewModel
+import com.amteen.paisa.ui.screen.home.HomeScreen
+import com.amteen.paisa.ui.screen.home.HomeViewModel
 import com.amteen.paisa.ui.screen.more.MoreScreen
 import com.amteen.paisa.ui.screen.paymentmethod.PaymentMethodScreen
 import com.amteen.paisa.ui.screen.paymentmethod.PaymentMethodViewModel
@@ -97,10 +99,34 @@ fun PaisaNavHost(
         ) {
             // --- Bottom navigation ---------------------------------------
             composable(Routes.HOME) {
-                PlaceholderScreen(
-                    title = stringResource(R.string.title_home),
-                    phaseNote = "The dashboard — balance, today's spending, budgets, " +
-                        "top categories and recent transactions — arrives in Phase 5.",
+                val container = LocalAppContainer.current
+                val viewModel: HomeViewModel = viewModel(
+                    factory = ViewModelFactories.home(container),
+                )
+                val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+                HomeScreen(
+                    state = state,
+                    onEvent = viewModel::onEvent,
+                    onAddExpense = {
+                        navController.navigate(Routes.addTransaction(TransactionTypeArg.EXPENSE))
+                    },
+                    onAddIncome = {
+                        navController.navigate(Routes.addTransaction(TransactionTypeArg.INCOME))
+                    },
+                    onSeeAllTransactions = {
+                        // A tab switch, not a push: the transactions list is a
+                        // top-level destination, and pushing it would leave Home
+                        // underneath for the back button to fall into.
+                        navController.navigate(Routes.TRANSACTIONS) {
+                            popUpTo(Routes.HOME) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                    onTransactionClick = { navController.navigate(Routes.transactionDetail(it)) },
+                    onCategories = { navController.navigate(Routes.CATEGORIES) },
+                    onBudgets = { navController.navigate(Routes.BUDGETS) },
                 )
             }
             composable(Routes.TRANSACTIONS) {

@@ -96,6 +96,46 @@
     <string name="payment_method_empty_message">Add how you usually pay — cash, a card, a mobile wallet — so transactions can record it.</string>
     <string name="payment_method_archived_count">Archived (%1$d)</string>
 
+    <!-- Dashboard -->
+    <string name="home_net_this_month">Net this month</string>
+    <string name="home_income">Income</string>
+    <string name="home_spent">Spent</string>
+    <string name="home_today">Today</string>
+    <string name="home_daily_average">Daily average</string>
+    <string name="home_nothing_today">Nothing spent yet</string>
+    <plurals name="home_days_in">
+        <item quantity="one">Over %1$d day so far</item>
+        <item quantity="other">Over %1$d days so far</item>
+    </plurals>
+    <string name="home_converted_note">Includes amounts converted using your manual rates.</string>
+    <string name="home_week_title">Last 7 days</string>
+    <string name="home_week_empty">Nothing spent in the last 7 days.</string>
+    <string name="home_budgets_title">Budgets</string>
+    <string name="home_top_categories_title">Where it went</string>
+    <string name="home_recent_title">Recent</string>
+    <string name="home_quick_actions_title">Quick actions</string>
+    <string name="home_see_all">See all</string>
+    <string name="home_compare_up">%1$s more than this time last month</string>
+    <string name="home_compare_down">%1$s less than this time last month</string>
+    <string name="home_compare_same">The same as this time last month</string>
+    <string name="home_compare_first">Nothing to compare against last month</string>
+    <string name="home_percent">%1$d%%</string>
+    <string name="home_budget_remaining">%1$s left</string>
+    <string name="home_budget_over">%1$s over</string>
+    <string name="home_budget_spent_of">%1$s of %2$s</string>
+    <string name="home_budget_status_normal">On track</string>
+    <string name="home_budget_status_warning">Getting close</string>
+    <string name="home_budget_status_critical">Nearly spent</string>
+    <string name="home_budget_status_exceeded">Over budget</string>
+    <string name="home_empty_title">Nothing recorded yet</string>
+    <string name="home_empty_message">Add an expense and this screen fills in — what you have spent, where it went, and how the month is tracking.</string>
+    <string name="home_empty_action">Add your first expense</string>
+    <string name="home_error_title">Could not work out your totals</string>
+    <string name="home_error_hint">This usually means a currency has an exchange rate of zero. Check your rates, then try again.</string>
+    <string name="action_add_expense">Add expense</string>
+    <string name="action_add_income">Add income</string>
+    <string name="action_retry">Try again</string>
+
     <!-- Placeholder shown by not-yet-implemented screens -->
     <string name="coming_soon">Coming soon</string>
 
