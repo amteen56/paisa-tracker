@@ -104,8 +104,8 @@
     <string name="home_daily_average">Daily average</string>
     <string name="home_nothing_today">Nothing spent yet</string>
     <plurals name="home_days_in">
-        <item quantity="one">Over %1$d day so far</item>
-        <item quantity="other">Over %1$d days so far</item>
+        <item quantity="one">Over the last day</item>
+        <item quantity="other">Over the last %1$d days</item>
     </plurals>
     <string name="home_converted_note">Includes amounts converted using your manual rates.</string>
     <string name="home_week_title">Last 7 days</string>

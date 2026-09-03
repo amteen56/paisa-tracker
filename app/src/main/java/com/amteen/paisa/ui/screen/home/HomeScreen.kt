@@ -432,8 +432,8 @@ private fun QuickStatsRow(summary: DashboardSummary, modifier: Modifier = Modifi
             currency = summary.baseCurrency,
             caption = pluralStringResource(
                 R.plurals.home_days_in,
-                summary.daysElapsed,
-                summary.daysElapsed,
+                summary.averageDays,
+                summary.averageDays,
             ),
             modifier = Modifier.weight(1f),
         )
@@ -868,7 +868,7 @@ private fun previewSummary(empty: Boolean = false): DashboardSummary {
             totals = TransactionTotals.empty("PKR"),
             todaySpentMinor = 0,
             dailyAverageMinor = 0,
-            daysElapsed = 12,
+            averageDays = 10,
             previousMonthToDateExpenseMinor = 0,
             topCategories = emptyList(),
             budgets = emptyList(),
@@ -919,7 +919,7 @@ private fun previewSummary(empty: Boolean = false): DashboardSummary {
         ),
         todaySpentMinor = 1_150_00,
         dailyAverageMinor = 401_00,
-        daysElapsed = 12,
+        averageDays = 10,
         previousMonthToDateExpenseMinor = 4_100_00,
         topCategories = listOf(
             CategorySpend("cat-food", "Food", "restaurant", food.colorArgb, 2_400_00, "PKR", 0.50f),

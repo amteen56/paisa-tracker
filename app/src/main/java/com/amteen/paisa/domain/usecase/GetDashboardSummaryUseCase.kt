@@ -65,11 +65,21 @@ data class DashboardSummary(
     val todaySpentMinor: Long,
 
     /**
-     * This month's spending divided by the days gone so far — including today, so
-     * the figure is stable rather than dividing by zero on the 1st.
+     * Average spending per day over a rolling ten-day window ending today.
+     *
+     * A rolling window rather than month-to-date: on the 1st, a month-to-date
+     * average is one day of noise, and on the 30th it is so smoothed that a change
+     * in habit takes weeks to show up. Ten days is short enough to move when
+     * spending moves and long enough that one big shop does not define it.
      */
     val dailyAverageMinor: Long,
-    val daysElapsed: Int,
+
+    /**
+     * The divisor actually used — ten, unless the user has been tracking for fewer
+     * days than that. Dividing a new user's first day by ten would quietly report a
+     * tenth of what they spent.
+     */
+    val averageDays: Int,
 
     /**
      * The same stretch of last month, for a like-for-like comparison. Comparing
@@ -105,7 +115,17 @@ data class DashboardSummary(
         }
 
     companion object {
+        /** Days in the bar chart. A week, so the weekday labels mean something. */
         const val DAY_WINDOW = 7
+
+        /**
+         * Days behind the daily average. Deliberately *not* [DAY_WINDOW]: seven days
+         * always contains exactly one of each weekday, so a weekly rhythm — a big
+         * Sunday shop — sits at a fixed weight and the figure barely moves. Ten days
+         * cuts across that rhythm, and the caption names the window either way.
+         */
+        const val AVERAGE_WINDOW = 10
+
         const val TOP_CATEGORY_COUNT = 5
         const val RECENT_COUNT = 5
     }
@@ -162,17 +182,25 @@ class GetDashboardSummaryUseCase(
         val base = table.base
         val previousMonth = month.minusMonths(1)
         val windowStart = now.minusDays((DashboardSummary.DAY_WINDOW - 1).toLong())
+        val averageStart = now.minusDays((DashboardSummary.AVERAGE_WINDOW - 1).toLong())
 
         var income = 0L
         var expense = 0L
         var todaySpent = 0L
         var previousToDate = 0L
+        var averageWindowExpense = 0L
+        var earliest: LocalDate? = null
         var mixed = false
 
         val byCategory = HashMap<String, Long>()
         val byDay = HashMap<LocalDate, Long>()
 
         for (record in records) {
+            // Tracked across every record, income included: how long the user has
+            // been using the app is what bounds the average's divisor, and that has
+            // nothing to do with which of their entries were expenses.
+            if (earliest == null || record.date < earliest) earliest = record.date
+
             val recordMonth = YearMonth.from(record.date)
             val isThisMonth = recordMonth == month
             val inBase = table.toBase(record.money).amountMinor
@@ -184,10 +212,13 @@ class GetDashboardSummaryUseCase(
                 continue
             }
 
-            // The seven-day window is built from the whole range rather than this
-            // month alone: for the first week of any month most of it is last month.
+            // Both windows are built from the whole range rather than this month
+            // alone: early in any month most of them is last month.
             if (record.date >= windowStart && record.date <= now) {
                 byDay[record.date] = (byDay[record.date] ?: 0L) + inBase
+            }
+            if (record.date >= averageStart && record.date <= now) {
+                averageWindowExpense += inBase
             }
 
             when {
@@ -204,7 +235,7 @@ class GetDashboardSummaryUseCase(
             }
         }
 
-        val daysElapsed = now.dayOfMonth
+        val averageDays = averageDivisor(earliest, averageStart, now)
 
         return DashboardSummary(
             today = now,
@@ -217,8 +248,8 @@ class GetDashboardSummaryUseCase(
                 count = records.count { YearMonth.from(it.date) == month },
             ),
             todaySpentMinor = todaySpent,
-            dailyAverageMinor = divideRounded(expense, daysElapsed),
-            daysElapsed = daysElapsed,
+            dailyAverageMinor = divideRounded(averageWindowExpense, averageDays),
+            averageDays = averageDays,
             previousMonthToDateExpenseMinor = previousToDate,
             topCategories = topCategories(byCategory, expense, refs.categories, base.code),
             budgets = budgetStatus(
@@ -303,6 +334,27 @@ class GetDashboardSummaryUseCase(
             amountMinor = byDay[date] ?: 0L,
             currencyCode = currencyCode,
         )
+    }
+
+    /**
+     * How many days the average should be divided by.
+     *
+     * Normally the full window. For someone who started tracking four days ago it is
+     * four — dividing their spending by ten would report a figure they have never
+     * spent in a day, on the strength of six days that predate the app.
+     *
+     * A record dated in the future cannot shorten the window, so a mistyped year
+     * cannot inflate the average.
+     */
+    private fun averageDivisor(
+        earliest: LocalDate?,
+        windowStart: LocalDate,
+        now: LocalDate,
+    ): Int {
+        val first = earliest ?: return DashboardSummary.AVERAGE_WINDOW
+        val start = maxOf(first, windowStart)
+        val days = now.toEpochDay() - start.toEpochDay() + 1
+        return days.coerceIn(1L, DashboardSummary.AVERAGE_WINDOW.toLong()).toInt()
     }
 
     /**

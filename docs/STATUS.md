@@ -14,7 +14,7 @@
 | **2** | Data layer (models, Money, JsonFileStore, repositories) | ✅ **Done — 55 tests green** |
 | **3** | Transactions (add/edit/delete/list/search) | ✅ **Done — 81 tests green, verified on device** |
 | **4** | Categories, subcategories & payment methods | ✅ **Done — 120 tests green, lint clean** |
-| **5** | Dashboard | ✅ **Done — 147 tests green, lint clean** |
+| **5** | Dashboard | ✅ **Done — 151 tests green, lint clean** |
 | 6 | Budgets + local alerts | ⬜ **Next** |
 | 7 | Calendar | ⬜ |
 | 8 | Reports & charts | ⬜ |
@@ -260,7 +260,7 @@ their data rather than just list it.
 - `ui/screen/home/` — balance card, today / daily average, the week chart, budget strip,
   top categories, recent transactions and quick actions
 
-**147 unit tests, all green** (27 new). Lint is clean.
+**151 unit tests, all green** (31 new). Lint is clean.
 
 ### Four decisions worth knowing about
 
@@ -270,12 +270,24 @@ both sides, and for the first week of any month most of the seven-day window is 
 month. Older history stays on disk until a report asks for it, so startup cost does not
 grow with the size of the ledger.
 
-**"Daily average" rather than "monthly average".** The plan said monthly average, but a
-true one means loading every shard the user has ever written, which is exactly the cost
-the lazy-loading design exists to avoid — and averaged over a set of months where the
-current one is partial, the figure is not meaningful anyway. This month's spending
-divided by the days elapsed is cheap, honest, and more actionable. A real multi-month
-average belongs in Phase 8, where the user picks the period explicitly.
+**A rolling ten-day average rather than a monthly one.** The plan said monthly average,
+but a true one means loading every shard the user has ever written — exactly the cost the
+lazy-loading design exists to avoid — and averaged over months where the current one is
+partial, the figure is not meaningful anyway. A rolling window is also better than
+month-to-date, which is one day of noise on the 1st and so smoothed by the 30th that a
+change in habit takes weeks to surface.
+
+Ten days rather than seven, deliberately: a seven-day window always holds exactly one of
+each weekday, so a weekly rhythm — the big Sunday shop — sits at a fixed weight and the
+average barely moves. Ten days cuts across that rhythm. The chart stays at seven so its
+weekday labels still mean something, and the average's caption names its own window so
+the two cannot be confused.
+
+The divisor is the window length **or** how long the user has actually been tracking,
+whichever is shorter: dividing someone's first day by ten would report a figure they have
+never spent in a day, on the strength of nine days that predate the app. A future-dated
+transaction cannot shorten it, so a mistyped year cannot inflate the average. A real
+multi-month average belongs in Phase 8, where the user picks the period explicitly.
 
 **The month-on-month comparison is like-for-like.** Eleven days of this month are
 compared against the first eleven days of last month, not against last month's total.

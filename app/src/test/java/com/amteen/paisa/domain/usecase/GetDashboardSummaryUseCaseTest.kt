@@ -196,22 +196,70 @@ class GetDashboardSummaryUseCaseTest {
     // -- Daily average ------------------------------------------------------
 
     @Test
-    fun `the daily average divides by the days elapsed, not the days in the month`() = runTest {
-        // Rs. 1,200 spent by the 12th averages Rs. 100 a day, not Rs. 40.
-        repository.save(transaction("a", 120_000))
+    fun `the average covers a rolling ten days, not the month so far`() = runTest {
+        // Tracking since June, so the divisor is the full ten days.
+        repository.save(transaction("history", 1_000, date = LocalDate.of(2026, 8, 1)))
+        repository.save(transaction("a", 100_000, date = today.minusDays(9)))
+        repository.save(transaction("b", 100_000))
 
         val result = summary()
 
-        assertEquals(12, result.daysElapsed)
-        assertEquals(10_000L, result.dailyAverageMinor)
+        assertEquals(10, result.averageDays)
+        assertEquals(20_000L, result.dailyAverageMinor)
     }
 
     @Test
-    fun `the daily average rounds half up and never touches a double`() = runTest {
-        // 100 minor units over 12 days is 8.33..., which must round to 8.
-        repository.save(transaction("a", 100))
+    fun `spending older than the window is left out of the average`() = runTest {
+        repository.save(transaction("history", 1_000, date = LocalDate.of(2026, 8, 1)))
+        // The tenth day back is in; the eleventh is not.
+        repository.save(transaction("edge-in", 100_000, date = today.minusDays(9)))
+        repository.save(transaction("edge-out", 900_000, date = today.minusDays(10)))
 
-        assertEquals(8L, summary().dailyAverageMinor)
+        assertEquals(10_000L, summary().dailyAverageMinor)
+    }
+
+    @Test
+    fun `a new user's average divides by the days they have actually been tracking`() = runTest {
+        // Started three days ago. Dividing by ten would report a third of the truth.
+        repository.save(transaction("a", 30_000, date = today.minusDays(2)))
+        repository.save(transaction("b", 30_000))
+
+        val result = summary()
+
+        assertEquals(3, result.averageDays)
+        assertEquals(20_000L, result.dailyAverageMinor)
+    }
+
+    @Test
+    fun `a future dated transaction cannot shorten the window`() = runTest {
+        repository.save(transaction("history", 0, date = LocalDate.of(2026, 8, 1)))
+        repository.save(transaction("today", 1_000))
+        repository.save(transaction("future", 50_000, date = today.plusDays(4)))
+
+        val result = summary()
+
+        assertEquals(10, result.averageDays)
+        // ...and spending that has not happened yet is not averaged either.
+        assertEquals(100L, result.dailyAverageMinor)
+    }
+
+    @Test
+    fun `the average rounds half up and never touches a double`() = runTest {
+        repository.save(transaction("history", 0, date = LocalDate.of(2026, 8, 1)))
+        // 105 minor units over 10 days is 10.5, which must round to 11.
+        repository.save(transaction("a", 105))
+
+        assertEquals(11L, summary().dailyAverageMinor)
+    }
+
+    @Test
+    fun `income is not averaged as spending`() = runTest {
+        repository.save(transaction("history", 0, date = LocalDate.of(2026, 8, 1)))
+        repository.save(
+            transaction("in", 900_000, type = TransactionType.INCOME, categoryId = "cat-salary"),
+        )
+
+        assertEquals(0L, summary().dailyAverageMinor)
     }
 
     // -- Month-on-month comparison ------------------------------------------
