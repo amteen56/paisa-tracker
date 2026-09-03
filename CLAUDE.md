@@ -18,6 +18,9 @@ violate them to get something working.
 
 ### Never add
 
+- **Multi-currency.** The app is **PKR only**. No currency picker, no currency management screen,
+  no exchange-rate editor, no "converted using manual rates" badge, no second entry in
+  `DefaultData.currencies`. See *Single currency* below for what the leftover plumbing is for.
 - **Any database** — Room, SQLite, Realm, ObjectBox, DataStore-as-a-database. Storage is JSON
   files, full stop. (`Preferences DataStore` is also out; settings live in `settings.json`.)
 - **Any backend or network call** — REST, GraphQL, Firebase, Supabase, remote config, exchange-rate
@@ -38,12 +41,29 @@ Before adding *any* new dependency, stop and ask. The dependency list is deliber
 ```
 
 - Amounts are stored, passed, summed, and compared as `Long`.
-- `Double` appears in exactly one place: `Currency.rateToBase`, a user-entered exchange rate.
-- Rounding happens in exactly one place: `CurrencyConverter`, half-up, at the target currency's
-  precision.
+- `Double` appears in exactly one place: `Currency.rateToBase`, which is always `1.0`.
 - Formatting for display happens in exactly one place: `MoneyFormatter`. Composables must never
   build an amount string themselves.
 - `Money` arithmetic across two different currencies throws. Do not add an implicit coercion.
+  With one currency this guard should never fire; if it does, it is a bug, not a feature request.
+
+### Single currency
+
+Every amount in Paisa is Pakistani Rupees. `DefaultData.currencies` holds exactly one entry:
+
+```kotlin
+Currency("PKR", "Pakistani Rupee", "Rs.", decimalDigits = 2, rateToBase = 1.0)
+```
+
+The `Currency` model, `CurrencyTable`, `CurrencyConverter`, `CurrencyRepository` and
+`currencies.json` all still exist. They are kept **only** so the on-disk JSON shape stays stable
+and `MoneyFormatter` has somewhere to read the symbol and `decimalDigits` from — not as a
+half-built multi-currency feature waiting to be finished.
+
+- `currencyCode` on `Transaction` and `Budget` is always `"PKR"`. Never surface it as a choice.
+- `CurrencyConverter` is an identity conversion in practice. Do not add call sites for it.
+- Do not seed, import, or offer a second currency. If the user asks for one, that is a product
+  decision to raise with them, not something to add on the way past.
 
 ### The dependency direction is one-way
 
@@ -92,7 +112,7 @@ a unit test for this — keep it passing.
 
 ### 4. Archive, don't delete
 
-Categories, subcategories, payment methods, and currencies use an `archived: Boolean`.
+Categories, subcategories, and payment methods use an `archived: Boolean`.
 
 - Hard delete is permitted **only** when the reference count is zero.
 - Otherwise the UI offers Archive, which hides the item from pickers but keeps it rendering
@@ -100,16 +120,11 @@ Categories, subcategories, payment methods, and currencies use an `archived: Boo
 - Existing transactions must always remain valid. A transaction must never end up pointing at a
   `categoryId` that no longer resolves.
 
-### 5. Currency conversion happens at read time only
+### 5. Stored amounts are never rewritten
 
-Stored transactions keep their original currency and amount forever. Changing the base currency
-rebases the rate table — it never rewrites transaction amounts.
-
-Each currency stores one `rateToBase`. Cross-conversion derives from those anchors; do not
-introduce a pairwise rate table.
-
-Any aggregate combining more than one currency must be visibly labelled as converted using the
-user's manual rates.
+A transaction's `amountMinor` is what the user typed, forever. Nothing — not a settings change,
+not an import, not a migration — retroactively edits a recorded amount. Aggregates are derived at
+read time (rule 6), so there is never a reason to.
 
 ### 6. Derive, don't store
 
@@ -117,10 +132,10 @@ Totals, balances, budget usage, category breakdowns, and report figures are comp
 transactions. Do not persist a running total — that is how numbers drift. Cache in memory only if
 profiling shows an actual problem, and make the cache invalidation obvious.
 
-### 7. Budget usage is computed in the budget's own currency
+### 7. Budget usage is a plain sum
 
-Convert each expense into the budget's currency before summing. Never compare a USD expense
-against a PKR limit as if the numbers were the same unit.
+Everything is PKR, so `spent` is just the sum of matching expenses' `amountMinor` for the period.
+No conversion step, no mixed-unit comparison.
 
 Thresholds: `<75` Normal · `<90` Warning · `<100` Critical · `>=100` Exceeded.
 
@@ -252,8 +267,8 @@ Simple · Offline · Private · Fast · Reliable · File-based
 ```
 
 Do not add features merely because finance apps usually have them. Recurring transactions, split
-transactions, investment tracking, receipt scanning, multi-account ledgers, bank imports, and
-widgets are all **out of scope** unless explicitly requested.
+transactions, investment tracking, receipt scanning, multi-account ledgers, bank imports,
+multi-currency, and widgets are all **out of scope** unless explicitly requested.
 
 The one metric that matters: adding an expense should take five to ten seconds. Any change that
 adds a tap to that flow needs to justify itself.

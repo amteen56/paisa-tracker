@@ -318,29 +318,43 @@ private fun AmountField(
 
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box {
-                TextButton(onClick = { currencyMenuOpen = true }) {
-                    Text(state.currency.code, fontWeight = FontWeight.SemiBold)
-                    Icon(
-                        Icons.Filled.ExpandMore,
-                        contentDescription = "Change currency",
-                        Modifier.size(18.dp),
-                    )
-                }
-                DropdownMenu(
-                    expanded = currencyMenuOpen,
-                    onDismissRequest = { currencyMenuOpen = false },
-                ) {
-                    state.currencies.forEach { currency ->
-                        DropdownMenuItem(
-                            text = { Text("${currency.code} — ${currency.name}") },
-                            onClick = {
-                                onCurrencyChange(currency.code)
-                                currencyMenuOpen = false
-                            },
+            // The app is PKR-only, so this is a plain label rather than a picker: a
+            // dropdown that can only ever hold one entry is a tap on the critical
+            // path for nothing. The branch stays because the state can technically
+            // carry more, and a silent wrong currency would be worse than a menu.
+            if (state.currencies.size > 1) {
+                Box {
+                    TextButton(onClick = { currencyMenuOpen = true }) {
+                        Text(state.currency.code, fontWeight = FontWeight.SemiBold)
+                        Icon(
+                            Icons.Filled.ExpandMore,
+                            contentDescription = "Change currency",
+                            Modifier.size(18.dp),
                         )
                     }
+                    DropdownMenu(
+                        expanded = currencyMenuOpen,
+                        onDismissRequest = { currencyMenuOpen = false },
+                    ) {
+                        state.currencies.forEach { currency ->
+                            DropdownMenuItem(
+                                text = { Text("${currency.code} — ${currency.name}") },
+                                onClick = {
+                                    onCurrencyChange(currency.code)
+                                    currencyMenuOpen = false
+                                },
+                            )
+                        }
+                    }
                 }
+            } else {
+                Text(
+                    text = state.currency.symbol,
+                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = accent,
+                    modifier = Modifier.padding(end = 8.dp),
+                )
             }
 
             OutlinedTextField(

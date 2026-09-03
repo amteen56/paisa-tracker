@@ -32,6 +32,15 @@ import java.time.LocalDate
 class AddEditTransactionViewModel(
     private val transactionId: String?,
     initialType: TransactionType,
+    /**
+     * The date the form opens on. Null means today, which is the common case; the
+     * calendar's day sheet passes the day the user was actually looking at, because
+     * an "add an expense" button on the 3rd that lands on today is a wrong answer
+     * the user has to notice and undo.
+     *
+     * Ignored when editing — a loaded record brings its own date.
+     */
+    initialDate: LocalDate? = null,
     private val saveTransaction: SaveTransactionUseCase,
     private val getTransactionDetails: GetTransactionDetailsUseCase,
     private val categoryRepository: CategoryRepository,
@@ -50,6 +59,7 @@ class AddEditTransactionViewModel(
     private val _uiState = MutableStateFlow(
         AddEditTransactionUiState(
             type = initialType,
+            date = initialDate ?: defaultDate(),
             isEditing = transactionId != null,
         ),
     )

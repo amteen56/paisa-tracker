@@ -21,8 +21,6 @@
     <string name="title_categories">Categories</string>
     <string name="title_budgets">Budgets</string>
     <string name="title_calendar">Calendar</string>
-    <string name="title_currencies">Currencies</string>
-    <string name="title_exchange_rates">Exchange Rates</string>
     <string name="title_payment_methods">Payment Methods</string>
     <string name="title_backup">Import &amp; Export</string>
     <string name="title_settings">Settings</string>
@@ -131,7 +129,7 @@
     <string name="home_empty_message">Add an expense and this screen fills in — what you have spent, where it went, and how the month is tracking.</string>
     <string name="home_empty_action">Add your first expense</string>
     <string name="home_error_title">Could not work out your totals</string>
-    <string name="home_error_hint">This usually means a currency has an exchange rate of zero. Check your rates, then try again.</string>
+    <string name="home_error_hint">Your saved data could not be read. Try again, or restore a backup.</string>
     <string name="action_add_expense">Add expense</string>
     <string name="action_add_income">Add income</string>
     <string name="action_retry">Try again</string>
@@ -166,6 +164,38 @@
     <string name="budget_archived_count">Archived (%1$d)</string>
     <string name="budget_no_categories_title">No spending categories</string>
     <string name="budget_no_categories_message">A budget needs a category to limit. Add an expense category first.</string>
+
+    <!-- Calendar -->
+    <string name="calendar_previous_month">Previous month</string>
+    <string name="calendar_next_month">Next month</string>
+    <string name="calendar_this_month">This month</string>
+    <string name="calendar_month_summary">This month</string>
+    <string name="calendar_net">Net</string>
+    <string name="calendar_active_days">Recorded on %1$d of %2$d days</string>
+    <string name="calendar_busiest_day">Busiest day</string>
+    <string name="calendar_busiest_day_value">%1$s · %2$s</string>
+    <string name="calendar_open_busiest_day">Open the busiest day, %1$s, %2$s spent</string>
+    <string name="calendar_figures_in">Day figures are in %1$s, shortened to fit.</string>
+    <!-- Spoken alternative for the grid, so a screen reader gets the shape of the
+         month without touring 42 cells. -->
+    <string name="calendar_overview_spoken">%1$s at a glance. Spent %2$s, received %3$s. Money recorded on %4$d of %5$d days.</string>
+    <string name="calendar_overview_spoken_quiet">%1$s at a glance. Nothing recorded this month.</string>
+    <string name="calendar_day_nothing">%1$s. Nothing recorded.</string>
+    <string name="calendar_day_spent">%1$s. Spent %2$s.</string>
+    <string name="calendar_day_received">%1$s. Received %2$s.</string>
+    <string name="calendar_day_both">%1$s. Spent %2$s, received %3$s.</string>
+    <string name="calendar_day_outside_month">%1$s, outside this month. %2$s</string>
+    <plurals name="calendar_day_entries">
+        <item quantity="one">%1$d entry</item>
+        <item quantity="other">%1$d entries</item>
+    </plurals>
+    <string name="calendar_day_empty_title">Nothing on this day</string>
+    <string name="calendar_day_empty_message">No expense or income was recorded on this date.</string>
+    <string name="calendar_day_add_expense">Add an expense</string>
+    <string name="calendar_day_close">Close</string>
+    <string name="calendar_empty_title">Nothing this month</string>
+    <string name="calendar_empty_message">Record an expense and it appears on its day here, with the month\'s totals above.</string>
+    <string name="calendar_error_title">Could not work out this month</string>
 
     <!-- Budget notifications -->
     <string name="notification_channel_budgets">Budget alerts</string>

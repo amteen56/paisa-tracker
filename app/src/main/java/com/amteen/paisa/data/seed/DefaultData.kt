@@ -22,19 +22,16 @@ object DefaultData {
     const val UNCATEGORIZED_ID = "cat-other-expense"
 
     /**
-     * Exchange rates are indicative starting values, not live data — the app has no
-     * network access. The user maintains them by hand; the rate editor says so.
+     * **Paisa is PKR-only.** Multi-currency was cut from the product, so this list has
+     * exactly one entry and no screen can add to it — see CLAUDE.md, *Single currency*.
+     *
+     * It stays a list rather than a bare constant because `Currency` is what carries the
+     * symbol and `decimalDigits` that `MoneyFormatter` formats with, and because keeping
+     * the shape means the on-disk JSON never needed a breaking change. Do not read that
+     * as an invitation to seed a second entry.
      */
     val currencies: List<Currency> = listOf(
         Currency("PKR", "Pakistani Rupee", "Rs.", 2, 1.0),
-        Currency("USD", "US Dollar", "$", 2, 280.0),
-        Currency("EUR", "Euro", "€", 2, 305.0),
-        Currency("GBP", "Pound Sterling", "£", 2, 355.0),
-        Currency("SAR", "Saudi Riyal", "SR", 2, 74.5),
-        Currency("AED", "UAE Dirham", "AED", 2, 76.0),
-        Currency("INR", "Indian Rupee", "₹", 2, 3.35),
-        // Zero decimal digits — the amount field must not offer a decimal point.
-        Currency("JPY", "Japanese Yen", "¥", 0, 1.85),
     )
 
     val paymentMethods: List<PaymentMethod> = listOf(

@@ -1,6 +1,6 @@
 # Project Status
 
-**Last updated:** 2026-09-04 (Phase 6)
+**Last updated:** 2026-09-04 (Phase 7)
 **Repo:** `paisa-tracker` · **Package:** `com.amteen.paisa` · **Branch:** `main`
 
 ---
@@ -16,14 +16,19 @@
 | **4** | Categories, subcategories & payment methods | ✅ **Done — 120 tests green, lint clean** |
 | **5** | Dashboard | ✅ **Done — 151 tests green, lint clean** |
 | **6** | Budgets + local alerts | ✅ **Done — 192 tests green, lint clean** |
-| 7 | Calendar | ⬜ **Next** |
-| 8 | Reports & charts | ⬜ |
-| 9 | Currencies & manual exchange rates | ⬜ |
-| 10 | Import/Export (JSON + CSV) | ⬜ |
-| 11 | Polish | ⬜ |
-| 12 | Unit tests & sample data | ⬜ |
+| **7** | Calendar | ✅ **Done — 220 tests green** |
+| 8 | Reports & charts | ⬜ **Next** |
+| ~~9~~ | ~~Currencies & manual exchange rates~~ | ❌ **Cut — app is PKR-only** |
+| 9 | Import/Export (JSON + CSV) | ⬜ |
+| 10 | Polish | ⬜ |
+| 11 | Unit tests & sample data | ⬜ |
 
 Full phase detail: [PROJECT_PLAN.md](PROJECT_PLAN.md).
+
+**Multi-currency is cut from the product.** Every amount is PKR. The `Currency` model,
+`CurrencyConverter` and `currencies.json` stay in the codebase so the JSON schema does not need a
+breaking change, but `DefaultData` seeds PKR alone and no screen ever offers a currency choice.
+Trimming the last currency affordances out of the UI is folded into Phase 10 (Polish).
 
 ---
 
@@ -39,6 +44,8 @@ One commit per phase, pushed to `origin/main` as soon as it is made.
 | `3345dfa` | Phase 4: categories, subcategories and payment methods |
 | `ac377de` | Phase 5: dashboard |
 | `e44382d` | Dashboard: rolling ten-day average |
+| `0325c02` | Phase 6: budgets and local alerts |
+| _pending_ | Phase 7: calendar |
 
 Verify the identity before committing — this repo must **not** be authored by the global work
 account:
@@ -86,7 +93,7 @@ read nor overwritten, and 20 concurrent writes to one file do not interleave.
 
 **Recovery reads a `.bak` sidecar, not `backup/`.** `JsonFileStore` keeps the previous version of
 each file as `X.json.bak` on every write and recovers from that. Restoring a single file out of a
-whole-app `backup/backup-<date>.json` snapshot needs the import pipeline, which is Phase 10. The
+whole-app `backup/backup-<date>.json` snapshot needs the import pipeline, which is Phase 9. The
 sidecar gives real per-file recovery now, at the cost of one extra rename per write.
 
 **A corrupt file is not re-seeded.** A *missing* file writes the seed; a *corrupt* one does not.
@@ -297,11 +304,11 @@ Comparing a part-month against a whole one would report a fall every single mont
 is worse than saying nothing. When there is no previous spending to compare against, the
 screen says so instead of reporting "up 100%" — a jump from zero is not a percentage.
 
-**Budget usage is computed in the budget's own currency.** A $100 limit against a
-Rs. 2,800 expense is 10% used, not 2,800% — see CLAUDE.md rule 7. The budget's real
-`Currency` is resolved in the use case rather than the screen, because formatting needs
-the symbol and decimal digits: a code alone renders a rupee limit as "PKR 3,000.00" and
-gives yen two decimal places it does not have.
+**Budget usage is a plain sum.** *(Written when the app was multi-currency; that scope has
+since been cut — everything is PKR, so there is no conversion step. See CLAUDE.md rule 7.)*
+The budget's `Currency` is still resolved in the use case rather than the screen, because
+formatting needs the symbol and decimal digits: a code alone renders a rupee limit as
+"PKR 3,000.00" rather than "Rs. 3,000.00".
 
 ### The chart, and why it is seven small canvases
 
@@ -394,7 +401,7 @@ easiest kind to deny for good.
 
 ### Budgets are not reference-counted
 
-Categories, subcategories, payment methods and currencies are archive-don't-delete
+Categories, subcategories and payment methods are archive-don't-delete
 because a transaction points at them. Nothing points at a budget: usage is derived from
 the ledger, never recorded against the limit, so deleting one orphans nothing. Delete is
 therefore a plain delete behind a confirmation, and Archive is offered separately for
@@ -404,11 +411,144 @@ earned.
 
 ---
 
-## Next: Phase 7 — calendar
+## What was built in Phase 7
 
-- Month grid with per-day totals
-- Day detail sheet, previous / next / today
-- Reuses the same month-shard reads the budgets screen already does
+The calendar — a month grid with each day's figures on it, a day sheet, and
+previous / next / today.
+
+- `domain/usecase/GetMonthCalendarUseCase.kt` — `MonthCalendar` and `CalendarDay`;
+  the grid, the per-day figures, the month summary and the peak, all derived in one
+  pass
+- `ui/screen/calendar/` — the screen, the month summary card, the grid and the day
+  detail sheet
+- `core/money/MoneyFormatter.formatCompact` — written in Phase 2 for exactly this and
+  used here for the first time; gained a `signed` flag
+- `ui/navigation/Routes.kt` — the add route takes an optional `date`
+
+**220 unit tests, all green** (28 new). Lint is deferred: it runs once after Phase 11
+and everything it finds is fixed in one pass, rather than per phase.
+
+Nothing was rewritten. The month read is `observeRange` over a `DateRange`, the same
+shape `BudgetListViewModel` uses for its stepper. The day sheet's rows are
+`TransactionRow`. The per-day bars are `ShareBar` from `ui/charts/` — already a
+hand-drawn `Canvas` proportion bar, so the calendar added no drawing code of its own.
+
+### Built twice, because the product changed underneath it
+
+The calendar was finished and green against the old contract, which had multiple
+currencies: cells carried a `mixedCurrency` flag and the grid captioned itself
+"including amounts converted using your manual rates", per what was then rule 5.
+
+Multi-currency was then cut — **Paisa is PKR-only** — so that came straight back out:
+`CalendarDay.mixedCurrency` and `MonthCalendar.mixedCurrency` are gone, the converted
+caption and the day sheet's converted note are gone, and the tests that seeded USD
+records to prove conversion went with them. A flag that can never be true and a badge
+that can never show are worse than nothing: they leave a cut decision lying around
+looking like an unfinished feature.
+
+What stayed is `CurrencyTable`. It is still how the screen gets the `Currency` that
+`MoneyFormatter` needs for the symbol and `decimalDigits`, and per-day sums still go
+through `toBase` — an identity conversion now, kept so a hand-edited or imported file
+carrying some other code is normalised rather than silently summed as though it were
+rupees. There is one test for exactly that.
+
+Note that `mixedCurrency` still exists on `TransactionTotals`, `DashboardSummary` and
+`BudgetProgress` from Phases 2–6, and `home_converted_note` is still wired into the
+dashboard and budgets screens. Removing it app-wide is one sweep across every screen
+at once, not something to do a phase at a time.
+
+### Why the calendar derives its own days
+
+`ObserveTransactionsUseCase` already groups by day, and its `TransactionSection`
+carries a date, a label, the items and the day's net. That is the right shape for a
+list and the wrong one for a grid, which needs four things it does not have: whole
+rows of seven regardless of where the month starts, days borrowed from the
+neighbouring months to fill those rows out, income and expense held **apart** per
+day, and a peak to scale the bars against. So `GetMonthCalendarUseCase` derives them,
+rather than the grid composable computing anything — CLAUDE.md again.
+
+Income and expense are kept apart deliberately. A day that took in Rs. 5,000 and
+spent Rs. 5,000 nets to zero, and a single net figure cannot tell it from a day where
+nothing happened at all.
+
+### The borrowed days are real, but they do not count
+
+The first and last rows need days from the months either side, so the grid loads the
+range it *displays* rather than the month — at most three shards.
+
+Those days show their true figures. Spending on the 31st and the 1st is one continuous
+stretch to the person who lived it, and blanking the cells would make the boundary
+look like a gap in the data. They are also tappable, and tapping one **moves the grid
+to that month**: opening a sheet for the 1st of October while the header still said
+September would leave the user unsure which month they had come back to.
+
+They are excluded from everything that claims to be about *this* month — the totals,
+the active-day count, the busiest day, and the peak the bars scale against. The peak
+matters most: one large day in August would otherwise flatten every bar in September.
+
+### A day cell has to say two things in about 48dp
+
+Each cell carries the day number, then up to two figures, then a bar.
+
+The figures are `formatCompact` with the symbol dropped — `-1.2K`, `+4.5K` — and one
+caption under the grid names the unit instead, because this is the only screen in the
+app that shows a bare number and "1.2K of what?" is a fair question.
+
+Each figure always shows its sign. At that size colour is doing most of the work of
+separating income from expense, and CLAUDE.md does not allow red/green to be the only
+signal, so `formatCompact` gained a `signed` parameter to match `format`. Building the
+sign in the composable was the alternative, and money strings come from one place only.
+
+The bar under them is that day's expense as a fraction of the month's busiest day. It
+encodes spending as **length**, which survives colour blindness, a greyscale screen
+and a glance — and it is what makes the shape of a month readable without reading a
+single figure. Today is a filled disc and days with activity a thin ring, so "which
+day is it" and "did anything happen" are also not colour alone.
+
+### What a screen reader user actually needs from a month view
+
+A 42-cell grid where every cell reads "12, minus 850 rupees" is accessible and
+unusable. Four things, in order of how much they help:
+
+**The month is stated in one focus stop.** The summary card speaks as a single
+sentence — the month, what was spent, what came in, and how many of its days had
+money on them. That is the shape of the month, and it does not cost 42 swipes.
+
+**The busiest day is a button.** It sits on the summary card as a real, tappable row
+that jumps straight to that day's sheet. It is the single day most worth reaching, and
+it is now reachable without touring the grid. Sighted users get the shortcut too.
+
+**Each cell speaks once, as a sentence.** `clearAndSetSemantics` collapses the number,
+the two figures and the bar into "Tue, 12 Sep. Spent Rs. 850, received Rs. 4,500." —
+one stop, not four. A quiet day says "nothing recorded" rather than going silent,
+because silence is indistinguishable from a bug.
+
+**Cells that carry nothing are not in the tree at all.** A quiet day borrowed from a
+neighbouring month exists only to square off a row. Up to twelve of those are dropped
+from the semantics tree entirely, and each week row is an `isTraversalGroup`, so a
+swipe past a group skips a whole week instead of stepping through it a day at a time.
+
+The column headings are marked decorative: every cell already speaks its own weekday.
+
+### The add button had to learn a date
+
+The day sheet offers "add an expense", and an add screen that opens on today when the
+user is looking at the 3rd is a wrong answer they have to notice and undo. So the add
+route took an optional `date`, `AddEditTransactionViewModel` an `initialDate`, and the
+sheet passes the day it is showing. An unparseable argument falls back to today rather
+than crashing, since it arrives as a string and may have been through process death.
+
+This is the one thing in Phase 7 that reached outside the calendar, and it is a single
+optional parameter with a default, so nothing else changed.
+
+---
+
+## Next: Phase 8 — reports and charts
+
+- Overview, category donut, daily bars, monthly income-vs-expense trend
+- Top categories, top expenses, subcategory drill-down
+- Period filters including a custom range
+- All charts hand-drawn on `Canvas`, animated, theme-aware, with text alternatives
 
 The architectural rules every phase is held to are in [../CLAUDE.md](../CLAUDE.md) — money is never
 a `Double`, writes are always atomic, reads recover rather than crash, and a composable renders

@@ -63,8 +63,17 @@ object MoneyFormatter {
      *
      * Deliberately drops precision, so it is for labels only — never for a figure
      * the user is expected to reconcile against.
+     *
+     * @param signed always show `+` or `-`. A calendar cell needs it: at this size
+     *   colour is doing most of the work of telling income from expense, and colour
+     *   must never be the only signal — see CLAUDE.md.
      */
-    fun formatCompact(money: Money, currency: Currency, withSymbol: Boolean = true): String {
+    fun formatCompact(
+        money: Money,
+        currency: Currency,
+        withSymbol: Boolean = true,
+        signed: Boolean = false,
+    ): String {
         val major = money.amountMinor / currency.minorUnitsPerMajor
         val negative = major < 0
         val magnitude = if (negative) -major else major
@@ -73,11 +82,19 @@ object MoneyFormatter {
             magnitude >= 1_000_000_000 -> magnitude / 100_000_000 to "B"
             magnitude >= 1_000_000 -> magnitude / 100_000 to "M"
             magnitude >= 1_000 -> magnitude / 100 to "K"
-            else -> return format(money, currency, withSymbol = withSymbol)
+            else -> return format(
+                money = money,
+                currency = currency,
+                withSymbol = withSymbol,
+                signed = signed,
+            )
         }
 
         val sb = StringBuilder()
-        if (negative) sb.append('-')
+        when {
+            negative -> sb.append('-')
+            signed -> sb.append('+')
+        }
         if (withSymbol) sb.appendSymbol(currency)
         sb.append(scaled / 10)
         val remainder = scaled % 10

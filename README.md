@@ -58,8 +58,8 @@ The app functions identically in airplane mode.
 | 13 | Local budget alerts | 🚧 |
 | 14 | Advanced charts | 🚧 |
 | 15 | Daily / monthly / category reports | 🚧 |
-| 16 | Multiple currencies | 🚧 |
-| 17 | Manual exchange rates | 🚧 |
+| ~~16~~ | ~~Multiple currencies~~ | ❌ Cut — PKR only |
+| ~~17~~ | ~~Manual exchange rates~~ | ❌ Cut — PKR only |
 | 18 | Export all data as JSON | 🚧 |
 | 19 | Export transactions as CSV | 🚧 |
 | 20 | Import a previous JSON backup | 🚧 |

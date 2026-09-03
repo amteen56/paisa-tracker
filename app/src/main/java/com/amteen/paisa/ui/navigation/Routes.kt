@@ -1,5 +1,7 @@
 package com.amteen.paisa.ui.navigation
 
+import java.time.LocalDate
+
 /**
  * Every navigation destination in the app.
  *
@@ -16,10 +18,19 @@ object Routes {
     const val MORE = "more"
 
     // --- Transactions ------------------------------------------------------
-    /** Add screen. `type` is EXPENSE or INCOME; the form is shared. */
-    const val ADD_TRANSACTION_ROUTE = "transaction/add/{type}"
+    /**
+     * Add screen. `type` is EXPENSE or INCOME; the form is shared.
+     *
+     * `date` is optional and only used by the calendar's day sheet, which has to open
+     * the form on the day the user was looking at rather than on today. ISO-8601, so
+     * it survives process death as a plain string.
+     */
+    const val ADD_TRANSACTION_ROUTE = "transaction/add/{type}?date={date}"
     const val ARG_TYPE = "type"
-    fun addTransaction(type: String) = "transaction/add/$type"
+    const val ARG_DATE = "date"
+
+    fun addTransaction(type: String, date: LocalDate? = null): String =
+        if (date == null) "transaction/add/$type" else "transaction/add/$type?date=$date"
 
     const val EDIT_TRANSACTION_ROUTE = "transaction/edit/{id}"
     fun editTransaction(id: String) = "transaction/edit/$id"
@@ -58,8 +69,7 @@ object Routes {
         if (id == null) "budgets/edit" else "budgets/edit?id=$id"
 
     const val CALENDAR = "calendar"
-    const val CURRENCIES = "currencies"
-    const val EXCHANGE_RATES = "exchange-rates"
+    // No CURRENCIES / EXCHANGE_RATES route: the app is PKR-only. See CLAUDE.md.
     const val PAYMENT_METHODS = "payment-methods"
 
     // --- Data --------------------------------------------------------------

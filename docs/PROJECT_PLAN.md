@@ -17,6 +17,9 @@ entry*: recording "Rs. 800, Food / Fast Food, Burger" must take 5–10 seconds.
 3. **Delivery** — phased, with a checkpoint after each milestone.
 4. **Optional scope** — budget notifications ✅, auto local backups ✅, sample data ✅,
    **app lock ❌ (out of V1)**.
+5. **Single currency — PKR only.** Multi-currency is cut from the product. There is no currency
+   picker, no exchange-rate table and no currency management screen. Every amount in the app is
+   Pakistani Rupees.
 
 ---
 
@@ -30,17 +33,17 @@ shards: a write touches only `2026-09.json` (~300 records). Reads are served fro
 `StateFlow` cache hydrated at startup, so the UI never blocks on I/O.
 
 **P2 — Budgets vs. multi-currency was under-specified.**
-A budget is `Rs. 20,000 PKR` but expenses may be in USD. Rule: **budget usage is always computed
-in the budget's own currency**, converting each expense at read time. Historical amounts are never
-rewritten. The UI shows a "converted using manual rates" badge whenever a period mixes currencies.
+Resolved by cutting multi-currency entirely. Every amount — transaction, budget limit, report
+total — is PKR, so budget usage is a plain sum with no conversion and no "converted using manual
+rates" caveat anywhere in the UI.
 
 **P3 — Exchange rates need an anchor.**
-Storing arbitrary pairs is O(n²) and can go inconsistent. Each currency instead stores **one rate
-relative to the base currency**; cross-conversion derives as `amount / rate[from] * rate[to]`.
-Changing the base currency rebases the table in one pass.
+No longer applicable. There is one currency, so there are no rates to store, anchor or rebase.
+`currencyCode` survives in the models as a constant `"PKR"` (see *Data models*) purely so the JSON
+schema does not need a breaking change if a second currency is ever wanted.
 
 **P4 — "Don't hard-delete referenced categories" needed a concrete rule.**
-Categories, subcategories, payment methods and currencies get `archived: Boolean`. Hard delete is
+Categories, subcategories and payment methods get `archived: Boolean`. Hard delete is
 permitted only at reference count 0; otherwise the UI offers Archive. Archived items disappear
 from pickers but still render in history and reports.
 
@@ -49,8 +52,9 @@ Parse → validate → build a complete in-memory candidate state → only then 
 written to `backup/` before any Replace import.
 
 **P6 — Money must never be a `Double`.**
-`Long` minor units throughout with per-currency `decimalDigits`. Conversion is the only place
-rounding occurs, half-up at the target currency's precision.
+`Long` minor units throughout, `decimalDigits = 2` for PKR. With one currency there is no
+conversion step and therefore no rounding at all — parsing user input is the only place a decimal
+string becomes minor units, and it is exact.
 
 ---
 
@@ -62,13 +66,13 @@ app/src/main/java/com/amteen/paisa/
   MainActivity.kt      single Activity, hosts NavHost
 
   core/
-    money/   Money, MoneyFormatter, CurrencyConverter
+    money/   Money, MoneyFormatter, AmountParser, CurrencyConverter (PKR→PKR only)
     time/    DateRange, PeriodFilter, DateFormatters
     result/  AppResult, AppError
 
   domain/
     model/       Transaction, TransactionType, Category, Subcategory, Budget,
-                 Currency, PaymentMethod, AppSettings, ThemeMode
+                 Currency (PKR only), PaymentMethod, AppSettings, ThemeMode
     repository/  6 interfaces — no Android/File/DTO types in the signatures
     usecase/     SaveTransaction, DeleteTransaction, GetDashboardSummary,
                  GetBudgetStatus, BuildReport, SearchTransactions,
@@ -79,7 +83,7 @@ app/src/main/java/com/amteen/paisa/
     dto/         *Dto + BackupDto — wire format, decoupled from domain
     mapper/      DtoMappers
     repository/  File*RepositoryImpl (6)
-    seed/        DefaultData — predefined categories, currencies, payment methods
+    seed/        DefaultData — predefined categories, payment methods, PKR
     csv/         CsvWriter, CsvReader (RFC 4180)
     migration/   SchemaMigrations
 
@@ -93,7 +97,7 @@ app/src/main/java/com/amteen/paisa/
                  TransactionRow, SectionCard, ConfirmDialog, AmountKeypad
     charts/      DonutChart, BarChart, LineChart, ChartAxis, ChartLegend
     screen/      home, transaction, history, calendar, budget, reports,
-                 category, currency, paymentmethod, settings, backup, more
+                 category, paymentmethod, settings, backup, more
 ```
 
 ### Layering
@@ -113,7 +117,7 @@ data class Transaction(
     val id: String,                 // UUID
     val type: TransactionType,      // EXPENSE | INCOME
     val amountMinor: Long,          // always > 0; direction comes from `type`
-    val currencyCode: String,
+    val currencyCode: String,       // always Currencies.PKR — kept for schema stability
     val categoryId: String,
     val subcategoryId: String?,
     val description: String,
@@ -133,23 +137,25 @@ data class Category(
     val subcategories: List<Subcategory>,
 )
 
-data class Currency(
-    val code: String, val name: String, val symbol: String,
-    val decimalDigits: Int,             // PKR 2, USD 2, JPY 0
-    val rateToBase: Double,             // manual; base currency == 1.0
-    val archived: Boolean,
-)
-
 data class Budget(
     val id: String, val categoryId: String, val subcategoryId: String?,
-    val limitMinor: Long, val currencyCode: String,
+    val limitMinor: Long, val currencyCode: String,   // always PKR
     val period: YearMonth?,             // null = recurring monthly
     val archived: Boolean,
 )
 ```
 
-`Money(amountMinor, currencyCode)` arithmetic across two different currencies **throws** rather
-than silently coercing.
+The `Currency` record itself survives, but `DefaultData` seeds exactly one entry —
+`Currency("PKR", "Pakistani Rupee", "Rs.", decimalDigits = 2, rateToBase = 1.0)` — and nothing in
+the UI can add, edit, archive or switch it. It exists to carry the symbol and `decimalDigits` that
+`MoneyFormatter` needs, not to enable a second currency.
+
+Consequently `currencyCode` on `Transaction` and `Budget` is always `"PKR"`, `rateToBase` is always
+`1.0`, and `CurrencyConverter` is an identity function in practice. `Money` arithmetic still
+**throws** on mixed currencies — a guard that can now only fire on a bug or a hand-edited file.
+
+This keeps the on-disk JSON shape stable, avoids a schema bump, and leaves the door open if a
+second currency is ever genuinely wanted. It is deliberately *not* an invitation to build one.
 
 ---
 
@@ -161,7 +167,7 @@ than silently coercing.
     transactions/2026-09.json
     categories.json
     budgets.json
-    currencies.json
+    currencies.json               single entry: PKR
     paymentmethods.json
     settings.json
     backup/backup-2026-09-02.json rolling, N kept (default 5)
@@ -188,7 +194,7 @@ Startup hydrates the current and previous month eagerly; older shards load on de
 Derived, never stored:
 
 ```
-spent  = Σ convert(expense.amount → budget.currency) for the budget's month & category
+spent  = Σ expense.amountMinor for the budget's month & category   // all PKR, no conversion
 usage  = spent / limit
 status = <75 Normal | <90 Warning | <100 Critical | >=100 Exceeded
 ```
@@ -217,7 +223,7 @@ CSV uses the spec's column order with RFC 4180 quoting and a UTF-8 BOM for Excel
 Amount `0` / negative / `"1.2.3"` / non-Latin digits / `Long` overflow · leading-zero and
 comma-grouped input · far-future and far-past dates · **editing a transaction across a month
 boundary** (must move shards *and* recompute both months) · deleting the last transaction in a
-shard · deleting a referenced category · archiving the base currency · rate of `0` or negative ·
+shard · deleting a referenced category ·
 budget on an archived category · CSV with comma + quote + newline in one field · truncated JSON
 mid-write · import referencing an unknown `categoryId` · duplicate IDs within one import file.
 
@@ -256,16 +262,16 @@ categories, top expenses, subcategory drill-down, period filters incl. custom ra
 hand-drawn on `Canvas`, animated, theme-aware, with text fallbacks for accessibility.
 *Checkpoint: charts reviewed on device.*
 
-**Phase 9 — Currencies.** Management, set base (rebases the rate table), archive, manual rate
-editor with a live "1 USD = 280 PKR" preview.
+*(The former Phase 9 — Currencies — is cut. The app is PKR-only; see decision 5 above.)*
 
-**Phase 10 — Import/Export.** JSON backup/restore, CSV export/import, validate→preview→confirm→
+**Phase 9 — Import/Export.** JSON backup/restore, CSV export/import, validate→preview→confirm→
 commit, duplicate handling, `BackupManager` rolling backups, SAF so no storage permission is needed.
 
-**Phase 11 — Polish.** Empty/error/loading states everywhere, transitions, TalkBack pass, touch
-targets, dark-mode audit, sample-data seeder.
+**Phase 10 — Polish.** Empty/error/loading states everywhere, transitions, TalkBack pass, touch
+targets, dark-mode audit, sample-data seeder. Includes removing any leftover currency affordance
+from the UI (pickers, badges, Settings entries) and trimming `DefaultData` to PKR alone.
 
-**Phase 12 — Tests + docs.** Full unit-test suite, README updates, `docs/sample-data/`.
+**Phase 11 — Tests + docs.** Full unit-test suite, README updates, `docs/sample-data/`.
 
 ---
 

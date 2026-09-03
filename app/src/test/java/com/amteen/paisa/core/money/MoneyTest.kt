@@ -90,4 +90,41 @@ class MoneyTest {
         assertEquals("Rs. 1.2K", MoneyFormatter.formatCompact(Money(125000, "PKR"), pkr))
         assertEquals("Rs. 2.4M", MoneyFormatter.formatCompact(Money(240000000, "PKR"), pkr))
     }
+
+    @Test
+    fun `compact form drops the symbol for a calendar cell`() {
+        // Cells are ~48dp wide, so the symbol goes and the grid's caption names the
+        // currency instead.
+        assertEquals("1.2K", MoneyFormatter.formatCompact(Money(125000, "PKR"), pkr, withSymbol = false))
+        assertEquals("850.00", MoneyFormatter.formatCompact(Money(85000, "PKR"), pkr, withSymbol = false))
+    }
+
+    @Test
+    fun `compact form signs both directions`() {
+        // Colour alone must never carry income-versus-expense, so a cell figure
+        // always shows its sign — above the compact threshold and below it.
+        assertEquals(
+            "+1.2K",
+            MoneyFormatter.formatCompact(Money(125000, "PKR"), pkr, withSymbol = false, signed = true),
+        )
+        assertEquals(
+            "-1.2K",
+            MoneyFormatter.formatCompact(Money(-125000, "PKR"), pkr, withSymbol = false),
+        )
+        assertEquals(
+            "+850.00",
+            MoneyFormatter.formatCompact(Money(85000, "PKR"), pkr, withSymbol = false, signed = true),
+        )
+        assertEquals(
+            "-850.00",
+            MoneyFormatter.formatCompact(Money(-85000, "PKR"), pkr, withSymbol = false),
+        )
+    }
+
+    @Test
+    fun `a negative sub-major amount still renders as negative`() {
+        // amountMinor / minorUnitsPerMajor is 0 here, so the sign cannot come from
+        // the major part — it has to come from the amount.
+        assertEquals("-Rs. 0.50", MoneyFormatter.formatCompact(Money(-50, "PKR"), pkr))
+    }
 }

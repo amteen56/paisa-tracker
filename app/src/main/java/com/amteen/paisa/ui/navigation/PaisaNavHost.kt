@@ -38,6 +38,8 @@ import com.amteen.paisa.ui.screen.budget.BudgetEditScreen
 import com.amteen.paisa.ui.screen.budget.BudgetEditViewModel
 import com.amteen.paisa.ui.screen.budget.BudgetListScreen
 import com.amteen.paisa.ui.screen.budget.BudgetListViewModel
+import com.amteen.paisa.ui.screen.calendar.CalendarScreen
+import com.amteen.paisa.ui.screen.calendar.CalendarViewModel
 import com.amteen.paisa.ui.screen.category.CategoryEditScreen
 import com.amteen.paisa.ui.screen.category.CategoryEditViewModel
 import com.amteen.paisa.ui.screen.category.CategoryListScreen
@@ -53,6 +55,7 @@ import com.amteen.paisa.ui.screen.transaction.AddEditTransactionScreen
 import com.amteen.paisa.ui.screen.transaction.AddEditTransactionViewModel
 import com.amteen.paisa.ui.screen.transaction.TransactionDetailScreen
 import com.amteen.paisa.ui.screen.transaction.TransactionDetailViewModel
+import java.time.LocalDate
 
 @Composable
 fun PaisaNavHost(
@@ -164,6 +167,11 @@ fun PaisaNavHost(
                 route = Routes.ADD_TRANSACTION_ROUTE,
                 arguments = listOf(
                     navArgument(Routes.ARG_TYPE) { type = NavType.StringType },
+                    navArgument(Routes.ARG_DATE) {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
                 ),
             ) { entry ->
                 val container = LocalAppContainer.current
@@ -172,8 +180,14 @@ fun PaisaNavHost(
                 } else {
                     TransactionType.EXPENSE
                 }
+                // An unparseable date falls back to today rather than crashing: the
+                // argument arrives as a string and may have been through process
+                // death, a deep link, or a future route change.
+                val date = entry.arguments?.getString(Routes.ARG_DATE)?.let { raw ->
+                    runCatching { LocalDate.parse(raw) }.getOrNull()
+                }
                 val viewModel: AddEditTransactionViewModel = viewModel(
-                    factory = ViewModelFactories.addEditTransaction(container, null, type),
+                    factory = ViewModelFactories.addEditTransaction(container, null, type, date),
                 )
                 val state by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -335,23 +349,22 @@ fun PaisaNavHost(
                 )
             }
             composable(Routes.CALENDAR) {
-                PlaceholderScreen(
-                    title = stringResource(R.string.title_calendar),
-                    phaseNote = "The calendar view arrives in Phase 7.",
-                    onBack = navController::popBackStack,
+                val container = LocalAppContainer.current
+                val viewModel: CalendarViewModel = viewModel(
+                    factory = ViewModelFactories.calendar(container),
                 )
-            }
-            composable(Routes.CURRENCIES) {
-                PlaceholderScreen(
-                    title = stringResource(R.string.title_currencies),
-                    phaseNote = "Currency management arrives in Phase 9.",
-                    onBack = navController::popBackStack,
-                )
-            }
-            composable(Routes.EXCHANGE_RATES) {
-                PlaceholderScreen(
-                    title = stringResource(R.string.title_exchange_rates),
-                    phaseNote = "Manual exchange rates arrive in Phase 9.",
+                val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+                CalendarScreen(
+                    state = state,
+                    onEvent = viewModel::onEvent,
+                    onTransactionClick = { navController.navigate(Routes.transactionDetail(it)) },
+                    // The form opens on the day the sheet was showing, not on today.
+                    onAddTransaction = { date ->
+                        navController.navigate(
+                            Routes.addTransaction(TransactionTypeArg.EXPENSE, date),
+                        )
+                    },
                     onBack = navController::popBackStack,
                 )
             }

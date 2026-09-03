@@ -30,6 +30,7 @@ import com.amteen.paisa.domain.usecase.EvaluateBudgetAlertsUseCase
 import com.amteen.paisa.domain.usecase.GetBudgetHistoryUseCase
 import com.amteen.paisa.domain.usecase.GetBudgetStatusUseCase
 import com.amteen.paisa.domain.usecase.GetDashboardSummaryUseCase
+import com.amteen.paisa.domain.usecase.GetMonthCalendarUseCase
 import com.amteen.paisa.domain.usecase.SaveBudgetUseCase
 import com.amteen.paisa.notification.BudgetAlertNotifier
 import com.amteen.paisa.notification.NotificationChannels
@@ -188,6 +189,17 @@ class AppContainer(context: Context) {
      * notification channel; the decision half is pure and lives in the use case.
      */
     val budgetAlertNotifier = BudgetAlertNotifier(appContext, evaluateBudgetAlerts)
+
+    // The calendar needs whole weeks of seven with the neighbouring months filling
+    // the gaps, and income and expense kept apart per day — a different shape from
+    // the flat day sections `observeTransactions` produces, so it derives its own.
+    val getMonthCalendar = GetMonthCalendarUseCase(
+        transactions = transactionRepository,
+        categories = categoryRepository,
+        paymentMethods = paymentMethodRepository,
+        currencies = currencyRepository,
+        settings = settingsRepository,
+    )
 
     val getTransactionDetails = GetTransactionDetailsUseCase(
         transactions = transactionRepository,

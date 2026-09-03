@@ -10,7 +10,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Category
-import androidx.compose.material.icons.outlined.CurrencyExchange
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Payments
 import androidx.compose.material.icons.outlined.Savings
@@ -67,18 +66,6 @@ private val sections = listOf(
                 "Categories and subcategories",
                 Icons.Outlined.Category,
                 Routes.CATEGORIES,
-            ),
-            MoreEntry(
-                R.string.title_currencies,
-                "Currencies and the default",
-                Icons.Outlined.CurrencyExchange,
-                Routes.CURRENCIES,
-            ),
-            MoreEntry(
-                R.string.title_exchange_rates,
-                "Manually configured rates",
-                Icons.Outlined.SwapHoriz,
-                Routes.EXCHANGE_RATES,
             ),
             MoreEntry(
                 R.string.title_payment_methods,

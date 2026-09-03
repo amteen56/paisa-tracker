@@ -7,6 +7,7 @@ import com.amteen.paisa.domain.model.CategoryScope
 import com.amteen.paisa.domain.model.TransactionType
 import com.amteen.paisa.ui.screen.budget.BudgetEditViewModel
 import com.amteen.paisa.ui.screen.budget.BudgetListViewModel
+import com.amteen.paisa.ui.screen.calendar.CalendarViewModel
 import com.amteen.paisa.ui.screen.category.CategoryEditViewModel
 import com.amteen.paisa.ui.screen.category.CategoryListViewModel
 import com.amteen.paisa.ui.screen.history.TransactionHistoryViewModel
@@ -14,6 +15,7 @@ import com.amteen.paisa.ui.screen.home.HomeViewModel
 import com.amteen.paisa.ui.screen.paymentmethod.PaymentMethodViewModel
 import com.amteen.paisa.ui.screen.transaction.AddEditTransactionViewModel
 import com.amteen.paisa.ui.screen.transaction.TransactionDetailViewModel
+import java.time.LocalDate
 
 /**
  * ViewModel construction, by hand.
@@ -32,11 +34,13 @@ object ViewModelFactories {
         container: AppContainer,
         transactionId: String?,
         type: TransactionType,
+        date: LocalDate? = null,
     ): ViewModelProvider.Factory = viewModelFactory {
         initializer {
             AddEditTransactionViewModel(
                 transactionId = transactionId,
                 initialType = type,
+                initialDate = date,
                 saveTransaction = container.saveTransaction,
                 getTransactionDetails = container.getTransactionDetails,
                 categoryRepository = container.categoryRepository,
@@ -131,6 +135,18 @@ object ViewModelFactories {
                 settingsRepository = container.settingsRepository,
                 saveBudget = container.saveBudget,
                 getBudgetHistory = container.getBudgetHistory,
+            )
+        }
+    }
+
+    fun calendar(container: AppContainer): ViewModelProvider.Factory = viewModelFactory {
+        initializer {
+            CalendarViewModel(
+                getMonthCalendar = container.getMonthCalendar,
+                categoryRepository = container.categoryRepository,
+                paymentMethodRepository = container.paymentMethodRepository,
+                currencyRepository = container.currencyRepository,
+                settingsRepository = container.settingsRepository,
             )
         }
     }
