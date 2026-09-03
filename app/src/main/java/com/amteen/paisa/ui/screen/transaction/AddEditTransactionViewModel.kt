@@ -38,6 +38,13 @@ class AddEditTransactionViewModel(
     private val paymentMethodRepository: PaymentMethodRepository,
     private val currencyRepository: CurrencyRepository,
     private val settingsRepository: SettingsRepository,
+    /**
+     * Called after a successful save so the budgets can be re-checked.
+     *
+     * A plain lambda rather than the notifier itself: this ViewModel has no business
+     * knowing what a notification is, and a test can pass `{}`.
+     */
+    private val onSaved: () -> Unit = {},
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(
@@ -260,7 +267,14 @@ class AddEditTransactionViewModel(
             )
 
             when (result) {
-                is AppResult.Ok -> _uiState.update { it.copy(isSaving = false, finished = true) }
+                is AppResult.Ok -> {
+                    // Spending only changes when something is recorded, so this is
+                    // the moment to re-check the budgets. Fire-and-forget on the
+                    // application scope: the form is about to close, and a
+                    // notification must never hold up the user's save.
+                    onSaved()
+                    _uiState.update { it.copy(isSaving = false, finished = true) }
+                }
 
                 is AppResult.Err -> _uiState.update { current ->
                     val error = result.error

@@ -73,21 +73,9 @@ class GetBudgetStatusUseCase {
 
         return applicable
             .map { budget ->
-                var spent = 0L
-                var mixed = false
-                for (record in monthExpenses) {
-                    if (!budget.covers(record)) continue
-                    if (record.currencyCode != budget.currencyCode) mixed = true
-                    spent += table.convert(record.money, budget.currencyCode).amountMinor
-                }
                 val category = categoryById[budget.categoryId]
                 BudgetSummary(
-                    progress = BudgetProgress(
-                        budget = budget,
-                        month = month,
-                        spentMinor = spent,
-                        mixedCurrency = mixed,
-                    ),
+                    progress = progressFor(budget, monthExpenses, month, table),
                     category = category,
                     subcategory = category?.subcategory(budget.subcategoryId),
                     currency = table.currency(budget.currencyCode),
@@ -99,6 +87,41 @@ class GetBudgetStatusUseCase {
                 compareByDescending<BudgetSummary> { it.progress.percent }
                     .thenBy { it.label },
             )
+    }
+
+    /**
+     * One budget's usage for one month, with no regard for whether the budget
+     * currently *applies* to that month.
+     *
+     * [invoke] filters by [Budget.appliesTo] because the dashboard should only show
+     * live budgets. History deliberately does not: an archived budget, or one pinned
+     * to a single month, still has a real figure for the months it was in force, and
+     * refusing to compute it would leave the history screen blank for exactly the
+     * budgets a user is most likely to be looking back at.
+     *
+     * [transactions] may span any range; only [month]'s expenses are counted.
+     */
+    fun progressFor(
+        budget: Budget,
+        transactions: List<Transaction>,
+        month: YearMonth,
+        table: CurrencyTable,
+    ): BudgetProgress {
+        var spent = 0L
+        var mixed = false
+        for (record in transactions) {
+            if (!record.type.isExpense) continue
+            if (YearMonth.from(record.date) != month) continue
+            if (!budget.covers(record)) continue
+            if (record.currencyCode != budget.currencyCode) mixed = true
+            spent += table.convert(record.money, budget.currencyCode).amountMinor
+        }
+        return BudgetProgress(
+            budget = budget,
+            month = month,
+            spentMinor = spent,
+            mixedCurrency = mixed,
+        )
     }
 }
 

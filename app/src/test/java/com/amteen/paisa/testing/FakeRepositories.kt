@@ -2,9 +2,11 @@ package com.amteen.paisa.testing
 
 import com.amteen.paisa.domain.model.AppSettings
 import com.amteen.paisa.domain.model.Budget
+import com.amteen.paisa.domain.model.BudgetAlert
 import com.amteen.paisa.domain.model.Category
 import com.amteen.paisa.domain.model.Currency
 import com.amteen.paisa.domain.model.PaymentMethod
+import com.amteen.paisa.domain.repository.BudgetAlertStateRepository
 import com.amteen.paisa.domain.repository.BudgetRepository
 import com.amteen.paisa.domain.repository.CategoryRepository
 import com.amteen.paisa.domain.repository.CurrencyRepository
@@ -13,6 +15,7 @@ import com.amteen.paisa.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.time.YearMonth
 
 /**
  * In-memory reference repositories for use-case tests.
@@ -96,6 +99,24 @@ class FakeSettingsRepository(initial: AppSettings = AppSettings()) : SettingsRep
     override suspend fun load() = Unit
     override suspend fun update(transform: (AppSettings) -> AppSettings) {
         state.value = transform(state.value)
+    }
+}
+
+class FakeBudgetAlertStateRepository(
+    initial: Set<BudgetAlert> = emptySet(),
+) : BudgetAlertStateRepository {
+    private val state = MutableStateFlow(initial)
+    override val fired: StateFlow<Set<BudgetAlert>> = state.asStateFlow()
+
+    override suspend fun load() = Unit
+    override suspend fun record(alerts: Collection<BudgetAlert>) {
+        state.value = state.value + alerts
+    }
+    override suspend fun forget(budgetId: String) {
+        state.value = state.value.filterNot { it.budgetId == budgetId }.toSet()
+    }
+    override suspend fun pruneBefore(before: YearMonth) {
+        state.value = state.value.filterNot { it.period < before }.toSet()
     }
 }
 

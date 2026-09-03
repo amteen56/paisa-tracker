@@ -5,6 +5,8 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.amteen.paisa.domain.model.CategoryScope
 import com.amteen.paisa.domain.model.TransactionType
+import com.amteen.paisa.ui.screen.budget.BudgetEditViewModel
+import com.amteen.paisa.ui.screen.budget.BudgetListViewModel
 import com.amteen.paisa.ui.screen.category.CategoryEditViewModel
 import com.amteen.paisa.ui.screen.category.CategoryListViewModel
 import com.amteen.paisa.ui.screen.history.TransactionHistoryViewModel
@@ -41,6 +43,7 @@ object ViewModelFactories {
                 paymentMethodRepository = container.paymentMethodRepository,
                 currencyRepository = container.currencyRepository,
                 settingsRepository = container.settingsRepository,
+                onSaved = container::checkBudgetAlerts,
             )
         }
     }
@@ -96,6 +99,38 @@ object ViewModelFactories {
                 archivePaymentMethod = container.archivePaymentMethod,
                 reorderPaymentMethods = container.reorderPaymentMethods,
                 setDefaultPaymentMethod = container.setDefaultPaymentMethod,
+            )
+        }
+    }
+
+    fun budgetList(container: AppContainer): ViewModelProvider.Factory = viewModelFactory {
+        initializer {
+            BudgetListViewModel(
+                budgetRepository = container.budgetRepository,
+                transactionRepository = container.transactionRepository,
+                categoryRepository = container.categoryRepository,
+                currencyRepository = container.currencyRepository,
+                settingsRepository = container.settingsRepository,
+                budgetStatus = container.getBudgetStatus,
+                archiveBudget = container.archiveBudget,
+                deleteBudget = container.deleteBudget,
+            )
+        }
+    }
+
+    fun budgetEdit(
+        container: AppContainer,
+        budgetId: String?,
+    ): ViewModelProvider.Factory = viewModelFactory {
+        initializer {
+            BudgetEditViewModel(
+                budgetId = budgetId,
+                budgetRepository = container.budgetRepository,
+                categoryRepository = container.categoryRepository,
+                currencyRepository = container.currencyRepository,
+                settingsRepository = container.settingsRepository,
+                saveBudget = container.saveBudget,
+                getBudgetHistory = container.getBudgetHistory,
             )
         }
     }

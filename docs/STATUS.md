@@ -1,6 +1,6 @@
 # Project Status
 
-**Last updated:** 2026-09-03 (Phase 5)
+**Last updated:** 2026-09-04 (Phase 6)
 **Repo:** `paisa-tracker` · **Package:** `com.amteen.paisa` · **Branch:** `main`
 
 ---
@@ -15,8 +15,8 @@
 | **3** | Transactions (add/edit/delete/list/search) | ✅ **Done — 81 tests green, verified on device** |
 | **4** | Categories, subcategories & payment methods | ✅ **Done — 120 tests green, lint clean** |
 | **5** | Dashboard | ✅ **Done — 151 tests green, lint clean** |
-| 6 | Budgets + local alerts | ⬜ **Next** |
-| 7 | Calendar | ⬜ |
+| **6** | Budgets + local alerts | ✅ **Done — 192 tests green, lint clean** |
+| 7 | Calendar | ⬜ **Next** |
 | 8 | Reports & charts | ⬜ |
 | 9 | Currencies & manual exchange rates | ⬜ |
 | 10 | Import/Export (JSON + CSV) | ⬜ |
@@ -37,6 +37,8 @@ One commit per phase, pushed to `origin/main` as soon as it is made.
 | `8e3eee8` | Phase 2: data layer — money, file store, repositories |
 | `6dbd470` | Phase 3: transactions — add, edit, detail, history |
 | `3345dfa` | Phase 4: categories, subcategories and payment methods |
+| `ac377de` | Phase 5: dashboard |
+| `e44382d` | Dashboard: rolling ten-day average |
 
 Verify the identity before committing — this repo must **not** be authored by the global work
 account:
@@ -324,12 +326,89 @@ editor, not the maths.
 
 ---
 
-## Next: Phase 6 — budgets and local alerts
+## What was built in Phase 6
 
-- Budget CRUD, on top of the `GetBudgetStatusUseCase` written in Phase 5
-- Budget history and the four-state status surface
-- `BudgetAlertNotifier` firing at 75 / 90 / 100%, once per threshold per period
-- `POST_NOTIFICATIONS` requested on Android 13+ — still no `INTERNET` permission
+Budgets, and the first thing in the app that speaks to the user when they are not
+looking at it.
+
+- `domain/usecase/BudgetUseCases.kt` — save (with the duplicate check), archive, delete
+- `domain/usecase/EvaluateBudgetAlertsUseCase.kt` — decides which alerts are due
+- `domain/usecase/GetBudgetHistoryUseCase.kt` — a budget's recent months
+- `domain/model/BudgetAlert.kt` + `data/repository/FileBudgetAlertStateRepositoryImpl.kt` —
+  the record of what has already been announced
+- `notification/` — `NotificationChannels`, `BudgetAlertNotifier`
+- `ui/screen/budget/` — the list with a month stepper and archived section, and the
+  editor with the budget's own history under the fields
+
+**192 unit tests, all green** (41 new). Lint is clean.
+
+Phase 5 had already written `GetBudgetStatusUseCase` for the dashboard strip, so the
+derivation was not rewritten — it was extended with `progressFor`, which computes one
+budget's usage for one month *without* the `appliesTo` filter. History needs that: an
+archived budget, or one pinned to a single month, still has real figures for the months
+it was in force, and those are exactly the budgets a user looks back at.
+
+### Where "once per threshold per period" lives
+
+In its own file, `app-data/budget-alerts.json`, behind a seventh repository.
+
+It did not belong in `settings.json`. That file is a set of preferences, written on every
+preference change; this is a log that gains an entry per budget per threshold per month.
+Mixing them would mean rewriting the alert history every time the user flipped a theme.
+
+The file is pruned to three months on every write, so it cannot grow without bound over
+years of use, and it is the one file in the app that is **not** re-seeded when missing —
+an absent record means "nothing has been announced yet", which is already the correct
+starting state.
+
+### The decision and the notification are separate
+
+`EvaluateBudgetAlertsUseCase` decides; `BudgetAlertNotifier` posts. The split is what
+makes the fiddly half testable on the JVM — an off-by-one in the threshold comparison
+means either silence at 100% or a notification on every app start, and both take weeks to
+notice in production.
+
+Three rules came out of that, each with a test:
+
+**Only the highest newly-crossed threshold is announced, but all crossed thresholds are
+recorded.** One large expense can cross 75, 90 and 100 at once, and three notifications
+about one purchase is three reasons to turn alerts off.
+
+**An alert is recorded as shown only once it has actually been posted.** If the
+permission is denied the alert stays pending and fires when it is granted, rather than
+being silently consumed while the shade was closed.
+
+**Falling back below a threshold does not re-arm it.** Deleting and re-adding an expense
+would otherwise re-announce a crossing the user has already been told about.
+
+Alerts are evaluated on app start and after a transaction saves — spending only changes
+when something is recorded, so a background worker would be a dependency and a wakeup
+budget spent to learn nothing.
+
+### Permission, asked in context
+
+`POST_NOTIFICATIONS` is requested from the budgets screen, and only once there is at
+least one live budget with alerts enabled. Asking on first launch — before the user has
+any budgets — is a permission prompt with no visible reason attached to it, and the
+easiest kind to deny for good.
+
+### Budgets are not reference-counted
+
+Categories, subcategories, payment methods and currencies are archive-don't-delete
+because a transaction points at them. Nothing points at a budget: usage is derived from
+the ledger, never recorded against the limit, so deleting one orphans nothing. Delete is
+therefore a plain delete behind a confirmation, and Archive is offered separately for
+anyone who wants the record kept. Deleting also clears that budget's alert records, so a
+future budget that reused the id cannot inherit an "already announced" state it never
+earned.
+
+---
+
+## Next: Phase 7 — calendar
+
+- Month grid with per-day totals
+- Day detail sheet, previous / next / today
+- Reuses the same month-shard reads the budgets screen already does
 
 The architectural rules every phase is held to are in [../CLAUDE.md](../CLAUDE.md) — money is never
 a `Double`, writes are always atomic, reads recover rather than crash, and a composable renders

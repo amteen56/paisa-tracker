@@ -3,6 +3,7 @@ package com.amteen.paisa.domain.repository
 import com.amteen.paisa.core.time.DateRange
 import com.amteen.paisa.domain.model.AppSettings
 import com.amteen.paisa.domain.model.Budget
+import com.amteen.paisa.domain.model.BudgetAlert
 import com.amteen.paisa.domain.model.Category
 import com.amteen.paisa.domain.model.Currency
 import com.amteen.paisa.domain.model.PaymentMethod
@@ -140,6 +141,31 @@ interface PaymentMethodRepository {
     suspend fun reorder(orderedIds: List<String>)
 
     suspend fun replaceAll(paymentMethods: List<PaymentMethod>)
+}
+
+/**
+ * Which budget alerts have already been shown.
+ *
+ * Separate from [BudgetRepository] because it is a different kind of thing: budgets
+ * are the user's data, this is the app's memory of what it has told them. Nothing is
+ * derived from it, and losing the file costs at most one repeated notification.
+ */
+interface BudgetAlertStateRepository {
+    val fired: StateFlow<Set<BudgetAlert>>
+
+    suspend fun load()
+
+    /** Adds [alerts]; already-recorded ones are a no-op. */
+    suspend fun record(alerts: Collection<BudgetAlert>)
+
+    /** Drops everything for one budget — called when that budget is deleted. */
+    suspend fun forget(budgetId: String)
+
+    /**
+     * Drops records for months before [before], so the file cannot grow without
+     * bound over years of use.
+     */
+    suspend fun pruneBefore(before: YearMonth)
 }
 
 interface SettingsRepository {

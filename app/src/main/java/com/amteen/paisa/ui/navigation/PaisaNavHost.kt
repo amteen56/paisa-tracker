@@ -34,6 +34,10 @@ import com.amteen.paisa.di.ViewModelFactories
 import com.amteen.paisa.domain.model.CategoryScope
 import com.amteen.paisa.domain.model.TransactionType
 import com.amteen.paisa.ui.components.PlaceholderScreen
+import com.amteen.paisa.ui.screen.budget.BudgetEditScreen
+import com.amteen.paisa.ui.screen.budget.BudgetEditViewModel
+import com.amteen.paisa.ui.screen.budget.BudgetListScreen
+import com.amteen.paisa.ui.screen.budget.BudgetListViewModel
 import com.amteen.paisa.ui.screen.category.CategoryEditScreen
 import com.amteen.paisa.ui.screen.category.CategoryEditViewModel
 import com.amteen.paisa.ui.screen.category.CategoryListScreen
@@ -290,9 +294,43 @@ fun PaisaNavHost(
 
             // --- Finance ---------------------------------------------------
             composable(Routes.BUDGETS) {
-                PlaceholderScreen(
-                    title = stringResource(R.string.title_budgets),
-                    phaseNote = "Budgets and local alerts arrive in Phase 6.",
+                val container = LocalAppContainer.current
+                val viewModel: BudgetListViewModel = viewModel(
+                    factory = ViewModelFactories.budgetList(container),
+                )
+                val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+                BudgetListScreen(
+                    state = state,
+                    onEvent = viewModel::onEvent,
+                    onAddBudget = { navController.navigate(Routes.budgetEdit()) },
+                    onEditBudget = { navController.navigate(Routes.budgetEdit(it)) },
+                    onBack = navController::popBackStack,
+                )
+            }
+
+            composable(
+                route = Routes.BUDGET_EDIT_ROUTE,
+                arguments = listOf(
+                    navArgument(Routes.ARG_ID) {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                ),
+            ) { entry ->
+                val container = LocalAppContainer.current
+                val viewModel: BudgetEditViewModel = viewModel(
+                    factory = ViewModelFactories.budgetEdit(
+                        container = container,
+                        budgetId = entry.arguments?.getString(Routes.ARG_ID),
+                    ),
+                )
+                val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+                BudgetEditScreen(
+                    state = state,
+                    onEvent = viewModel::onEvent,
                     onBack = navController::popBackStack,
                 )
             }

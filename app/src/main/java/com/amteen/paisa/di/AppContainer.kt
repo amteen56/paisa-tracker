@@ -3,6 +3,7 @@ package com.amteen.paisa.di
 import android.content.Context
 import com.amteen.paisa.data.file.FilePaths
 import com.amteen.paisa.data.file.JsonFileStore
+import com.amteen.paisa.data.repository.FileBudgetAlertStateRepositoryImpl
 import com.amteen.paisa.data.repository.FileBudgetRepositoryImpl
 import com.amteen.paisa.data.repository.FileCategoryRepositoryImpl
 import com.amteen.paisa.data.repository.FileCurrencyRepositoryImpl
@@ -10,20 +11,28 @@ import com.amteen.paisa.data.repository.FilePaymentMethodRepositoryImpl
 import com.amteen.paisa.data.repository.FileSettingsRepositoryImpl
 import com.amteen.paisa.data.repository.FileTransactionRepositoryImpl
 import com.amteen.paisa.data.seed.DefaultData
+import com.amteen.paisa.domain.repository.BudgetAlertStateRepository
 import com.amteen.paisa.domain.repository.BudgetRepository
 import com.amteen.paisa.domain.repository.CategoryRepository
 import com.amteen.paisa.domain.repository.CurrencyRepository
 import com.amteen.paisa.domain.repository.PaymentMethodRepository
 import com.amteen.paisa.domain.repository.SettingsRepository
 import com.amteen.paisa.domain.repository.TransactionRepository
+import com.amteen.paisa.domain.usecase.ArchiveBudgetUseCase
 import com.amteen.paisa.domain.usecase.ArchiveCategoryUseCase
 import com.amteen.paisa.domain.usecase.ArchivePaymentMethodUseCase
 import com.amteen.paisa.domain.usecase.CountCategoryReferencesUseCase
+import com.amteen.paisa.domain.usecase.DeleteBudgetUseCase
 import com.amteen.paisa.domain.usecase.DeleteCategoryUseCase
 import com.amteen.paisa.domain.usecase.DeletePaymentMethodUseCase
 import com.amteen.paisa.domain.usecase.DeleteTransactionUseCase
+import com.amteen.paisa.domain.usecase.EvaluateBudgetAlertsUseCase
+import com.amteen.paisa.domain.usecase.GetBudgetHistoryUseCase
 import com.amteen.paisa.domain.usecase.GetBudgetStatusUseCase
 import com.amteen.paisa.domain.usecase.GetDashboardSummaryUseCase
+import com.amteen.paisa.domain.usecase.SaveBudgetUseCase
+import com.amteen.paisa.notification.BudgetAlertNotifier
+import com.amteen.paisa.notification.NotificationChannels
 import com.amteen.paisa.domain.usecase.ReorderCategoriesUseCase
 import com.amteen.paisa.domain.usecase.ReorderPaymentMethodsUseCase
 import com.amteen.paisa.domain.usecase.SaveCategoryUseCase
@@ -70,6 +79,8 @@ class AppContainer(context: Context) {
     val categoryRepository: CategoryRepository = FileCategoryRepositoryImpl(fileStore)
     val paymentMethodRepository: PaymentMethodRepository = FilePaymentMethodRepositoryImpl(fileStore)
     val budgetRepository: BudgetRepository = FileBudgetRepositoryImpl(fileStore)
+    val budgetAlertStateRepository: BudgetAlertStateRepository =
+        FileBudgetAlertStateRepositoryImpl(fileStore)
     val transactionRepository: TransactionRepository = FileTransactionRepositoryImpl(fileStore)
 
     // -- Use cases ----------------------------------------------------------
@@ -140,6 +151,44 @@ class AppContainer(context: Context) {
         budgetStatus = getBudgetStatus,
     )
 
+    val saveBudget = SaveBudgetUseCase(
+        budgets = budgetRepository,
+        categories = categoryRepository,
+    )
+
+    val archiveBudget = ArchiveBudgetUseCase(budgetRepository)
+
+    val deleteBudget = DeleteBudgetUseCase(
+        budgets = budgetRepository,
+        alerts = budgetAlertStateRepository,
+    )
+
+    val getBudgetHistory = GetBudgetHistoryUseCase(
+        budgets = budgetRepository,
+        transactions = transactionRepository,
+        currencies = currencyRepository,
+        settings = settingsRepository,
+        budgetStatus = getBudgetStatus,
+    )
+
+    val evaluateBudgetAlerts = EvaluateBudgetAlertsUseCase(
+        budgets = budgetRepository,
+        transactions = transactionRepository,
+        categories = categoryRepository,
+        currencies = currencyRepository,
+        settings = settingsRepository,
+        alertState = budgetAlertStateRepository,
+        budgetStatus = getBudgetStatus,
+    )
+
+    /**
+     * Shows the alerts the use case decides on.
+     *
+     * Held here rather than created per call site because it owns a [Context] and a
+     * notification channel; the decision half is pure and lives in the use case.
+     */
+    val budgetAlertNotifier = BudgetAlertNotifier(appContext, evaluateBudgetAlerts)
+
     val getTransactionDetails = GetTransactionDetailsUseCase(
         transactions = transactionRepository,
         categories = categoryRepository,
@@ -170,6 +219,11 @@ class AppContainer(context: Context) {
      * month, so startup cost does not grow with history.
      */
     fun initialize() {
+        // Idempotent, and cheap enough to do on every start. Doing it here rather
+        // than lazily means the channel exists in system settings before the first
+        // alert, so the user can find and tune it in advance.
+        NotificationChannels.ensure(appContext)
+
         applicationScope.launch {
             fileStore.ensureDirectories()
 
@@ -180,6 +234,7 @@ class AppContainer(context: Context) {
             categoryRepository.load()
             paymentMethodRepository.load()
             budgetRepository.load()
+            budgetAlertStateRepository.load()
 
             if (!settingsRepository.settings.value.initialized) {
                 settingsRepository.update {
@@ -193,6 +248,31 @@ class AppContainer(context: Context) {
             }
 
             _ready.value = true
+
+            // Catches a budget crossed by an edit made in a previous session, or by
+            // the month simply turning over. Runs after `ready` so it never delays
+            // the first frame.
+            checkBudgetAlerts()
+        }
+    }
+
+    /**
+     * Evaluates the budgets and shows anything newly crossed.
+     *
+     * Called on start and after a transaction is saved rather than on a schedule:
+     * spending only changes when the user records something, so a background worker
+     * would be a dependency and a wakeup budget spent to learn nothing. Failures are
+     * swallowed — a missed notification must never take down the save that triggered
+     * it.
+     */
+    fun checkBudgetAlerts() {
+        applicationScope.launch {
+            try {
+                budgetAlertNotifier.check()
+            } catch (e: Exception) {
+                // Deliberately silent. There is no crash reporter in this app by
+                // design, and there is nothing the user could do with the failure.
+            }
         }
     }
 }

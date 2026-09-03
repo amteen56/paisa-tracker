@@ -136,6 +136,45 @@
     <string name="action_add_income">Add income</string>
     <string name="action_retry">Try again</string>
 
+    <!-- Budgets -->
+    <string name="budget_add">Add budget</string>
+    <string name="budget_edit_title">Edit budget</string>
+    <string name="budget_new_title">New budget</string>
+    <string name="budget_previous_month">Previous month</string>
+    <string name="budget_next_month">Next month</string>
+    <string name="budget_this_month">This month</string>
+    <string name="budget_limit_label">Monthly limit</string>
+    <string name="budget_category_label">Category</string>
+    <string name="budget_subcategory_label">Narrow to a subcategory (optional)</string>
+    <string name="budget_period_label">Applies to</string>
+    <string name="budget_period_recurring">Every month</string>
+    <string name="budget_period_single">One month only</string>
+    <string name="budget_recurring_badge">Every month</string>
+    <string name="budget_history_title">Recent months</string>
+    <string name="budget_history_loading">Working out recent months…</string>
+    <string name="budget_history_empty">No spending recorded against this budget yet.</string>
+    <string name="budget_totals_title">All budgets</string>
+    <string name="budget_totals_body">%1$s of %2$s</string>
+    <string name="budget_alerts_label">Alert me at 75%%, 90%% and 100%%</string>
+    <string name="budget_alerts_note">Notifications are generated on this device. Nothing is sent anywhere.</string>
+    <string name="budget_actions_for">Actions for %1$s</string>
+    <string name="budget_delete_title">Delete the %1$s budget?</string>
+    <string name="budget_delete_message">Your transactions are untouched — a budget only ever reads them. This cannot be undone.</string>
+    <string name="budget_empty_title">No budgets yet</string>
+    <string name="budget_empty_message">Set a limit on a category and Paisa will track it against what you actually spend, and tell you before you run out.</string>
+    <string name="budget_empty_action">Set your first budget</string>
+    <string name="budget_archived_count">Archived (%1$d)</string>
+    <string name="budget_no_categories_title">No spending categories</string>
+    <string name="budget_no_categories_message">A budget needs a category to limit. Add an expense category first.</string>
+
+    <!-- Budget notifications -->
+    <string name="notification_channel_budgets">Budget alerts</string>
+    <string name="notification_channel_budgets_desc">Tells you when a budget reaches 75%%, 90%% or 100%%. Generated on this device from your own data.</string>
+    <string name="notification_budget_threshold">%1$s budget is %2$d%% spent</string>
+    <string name="notification_budget_exceeded">%1$s budget is spent</string>
+    <string name="notification_budget_body_left">%1$s left of your %2$s limit.</string>
+    <string name="notification_budget_body_over">%1$s over your %2$s limit.</string>
+
     <!-- Placeholder shown by not-yet-implemented screens -->
     <string name="coming_soon">Coming soon</string>
 

@@ -157,3 +157,17 @@ data class SettingsFile(
     @SerialName(JsonFileStore.KEY_SCHEMA_VERSION) val schemaVersion: Int = V,
     val settings: SettingsDto = SettingsDto(),
 )
+
+@Serializable
+data class BudgetAlertDto(
+    val budgetId: String = "",
+    /** `uuuu-MM`. */
+    val period: String = "",
+    val threshold: Int = 0,
+)
+
+@Serializable
+data class BudgetAlertsFile(
+    @SerialName(JsonFileStore.KEY_SCHEMA_VERSION) val schemaVersion: Int = V,
+    val fired: List<BudgetAlertDto> = emptyList(),
+)

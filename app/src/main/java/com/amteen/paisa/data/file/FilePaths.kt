@@ -19,6 +19,14 @@ object FilePaths {
     const val PAYMENT_METHODS = "paymentmethods.json"
     const val SETTINGS = "settings.json"
 
+    /**
+     * Which budget alerts have already been shown. Kept out of `settings.json`
+     * because it is a growing log rather than a preference — it gains an entry per
+     * budget per threshold per month, and settings is written on every preference
+     * change.
+     */
+    const val BUDGET_ALERTS = "budget-alerts.json"
+
     const val TRANSACTIONS_DIR = "transactions"
     const val BACKUP_DIR = "backup"
 

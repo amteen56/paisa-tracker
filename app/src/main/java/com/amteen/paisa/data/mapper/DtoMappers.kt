@@ -1,5 +1,6 @@
 package com.amteen.paisa.data.mapper
 
+import com.amteen.paisa.data.dto.BudgetAlertDto
 import com.amteen.paisa.data.dto.BudgetDto
 import com.amteen.paisa.data.dto.CategoryDto
 import com.amteen.paisa.data.dto.CurrencyDto
@@ -9,6 +10,8 @@ import com.amteen.paisa.data.dto.SubcategoryDto
 import com.amteen.paisa.data.dto.TransactionDto
 import com.amteen.paisa.domain.model.AppSettings
 import com.amteen.paisa.domain.model.Budget
+import com.amteen.paisa.domain.model.BudgetAlert
+import com.amteen.paisa.domain.model.BudgetAlertThresholds
 import com.amteen.paisa.domain.model.Category
 import com.amteen.paisa.domain.model.CategoryScope
 import com.amteen.paisa.domain.model.Currency
@@ -152,6 +155,24 @@ fun Budget.toDto() = BudgetDto(
     currencyCode = currencyCode,
     period = period?.toString(),
     archived = archived,
+)
+
+// -- Budget alert state -----------------------------------------------------
+
+fun BudgetAlertDto.toDomain(): BudgetAlert? {
+    if (budgetId.isBlank()) return null
+    val month = parseYearMonth(period) ?: return null
+    // A threshold this build does not recognise is dropped rather than kept: it
+    // could only have come from a newer build, and holding it would suppress an
+    // alert this build does not know it is suppressing.
+    if (threshold !in BudgetAlertThresholds.all) return null
+    return BudgetAlert(budgetId = budgetId, period = month, threshold = threshold)
+}
+
+fun BudgetAlert.toDto() = BudgetAlertDto(
+    budgetId = budgetId,
+    period = period.toString(),
+    threshold = threshold,
 )
 
 // -- Payment method ---------------------------------------------------------
