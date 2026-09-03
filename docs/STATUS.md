@@ -45,7 +45,7 @@ One commit per phase, pushed to `origin/main` as soon as it is made.
 | `ac377de` | Phase 5: dashboard |
 | `e44382d` | Dashboard: rolling ten-day average |
 | `0325c02` | Phase 6: budgets and local alerts |
-| _pending_ | Phase 7: calendar |
+| `3721335` | Phase 7: calendar, and the cut to PKR only |
 
 Verify the identity before committing — this repo must **not** be authored by the global work
 account:
