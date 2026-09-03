@@ -12,8 +12,8 @@
 | **0** | README, CLAUDE.md, .gitignore | ✅ **Done** |
 | **1** | Gradle setup, theme, navigation skeleton | ✅ **Done — `BUILD SUCCESSFUL`** |
 | **2** | Data layer (models, Money, JsonFileStore, repositories) | ✅ **Done — 55 tests green** |
-| 3 | Transactions (add/edit/delete/list/search) | 🔨 **In progress** |
-| 4 | Categories & subcategories | ⬜ |
+| **3** | Transactions (add/edit/delete/list/search) | ✅ **Done — 81 tests green, verified on device** |
+| 4 | Categories & subcategories | ⬜ **Next** |
 | 5 | Dashboard | ⬜ |
 | 6 | Budgets + local alerts | ⬜ |
 | 7 | Calendar | ⬜ |
@@ -34,6 +34,7 @@ One commit per phase. Nothing is pushed yet — the remote has no `main` branch.
 | Commit | Phase |
 |---|---|
 | `cf67f8a` | Phase 0–1: docs, Gradle setup, Material 3 theme, navigation skeleton |
+| `8e3eee8` | Phase 2: data layer — money, file store, repositories |
 
 Verify the identity before committing — this repo must **not** be authored by the global work
 account:
@@ -142,23 +143,47 @@ Android Studio is unaffected — it supplies its own JDK.
 
 ---
 
-## Next: Phase 3 — transactions
+## What was built in Phase 3
 
-The data layer is done, so this is the first phase the user can actually *see*. Deliverables:
+The first phase that is visible on screen, and the app is now genuinely usable for recording money.
 
-- `ui/components/` — `AmountText`, `TransactionRow`, `ConfirmDialog`, `ErrorState`
-- `ui/icons/CategoryIcons.kt` — stable `iconKey` → `ImageVector`, with a fallback
-- `ui/screen/transaction/` — the shared add/edit form (type-switched), plus the detail screen
-- `ui/screen/history/` — search, filters, 4 sort modes, sticky date headers
-- `di/ViewModelFactories.kt`, and the real screens registered in `PaisaNavHost`
+- `ui/components/` — `AmountText` / `NetAmountText`, `TransactionRow`, `ConfirmDialog`,
+  `ErrorState`, `LoadingState`
+- `ui/icons/CategoryIcons.kt` — stable `iconKey` → `ImageVector` with a fallback, so a category
+  from a newer build still renders instead of crashing
+- `ui/screen/transaction/` — one type-switched form backing both Add and Edit, plus the detail
+  screen with delete-and-confirm
+- `ui/screen/history/` — search across description/notes/category/payment method, filters by type,
+  category, payment method and currency, 4 sort modes, period chips, sticky date headers
+- `di/ViewModelFactories.kt` — hand-written factories; each names its exact dependencies rather
+  than taking the whole container, so every ViewModel is constructible in a test
 
-The bar for the add flow is **5–10 seconds** for "Rs. 800, Food / Fast Food, Burger" — autofocused
-amount field, numeric keyboard, category chips rather than a dropdown. Any change that adds a tap
-to that flow has to justify itself.
+**Entry speed:** the amount field is first and autofocused so the keypad is already up, categories
+are one-tap chips rather than a dropdown, the date defaults to today, the default payment method is
+pre-selected, and notes stay collapsed until asked for.
 
-**Also still open:** the emulator was left mid-recovery before the restart — a `-wipe-data` cold
-boot was in progress and never confirmed. See
-[EMULATOR_TROUBLESHOOTING.md](EMULATOR_TROUBLESHOOTING.md) step 5 before running on device.
+### The layout bug worth remembering
+
+Amounts rendered as `+Rs.` on the list and summary card while the detail screen showed
+`+Rs. 150,000.00` correctly. `MoneyFormatter` was right the whole time — the text had `maxLines = 1`
+with no overflow handling, so anything too wide was **silently** cut.
+
+Three fixes: the row's amount column went from a fixed `116.dp` to `widthIn(min = 96.dp)`; the
+summary card gives Net the full width and drops Income/Expense to a second row; and `AmountText`
+now sets `TextOverflow.Ellipsis`, so a future overflow reads `+Rs. 150,0…` — visibly incomplete —
+rather than looking like a legitimate smaller number.
+
+**No unit test could have caught this.** It is a layout constraint, not logic. Screenshot review on
+a real device is the only thing that finds it, which is why the definition of done includes it.
+
+---
+
+## Next: Phase 4 — categories
+
+- Category and subcategory CRUD, icon and colour pickers, drag-to-reorder
+- The archive rule: hard delete only at reference count zero, otherwise offer Archive
+  (`TransactionRepository.countByCategory` already exists for exactly this)
+- Payment method management, same rules
 
 The architectural rules every phase is held to are in [../CLAUDE.md](../CLAUDE.md) — money is never
 a `Double`, writes are always atomic, reads recover rather than crash, and a composable renders

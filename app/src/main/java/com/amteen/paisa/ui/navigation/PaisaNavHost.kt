@@ -17,6 +17,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -25,8 +28,17 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.amteen.paisa.R
+import com.amteen.paisa.di.LocalAppContainer
+import com.amteen.paisa.di.ViewModelFactories
+import com.amteen.paisa.domain.model.TransactionType
 import com.amteen.paisa.ui.components.PlaceholderScreen
+import com.amteen.paisa.ui.screen.history.TransactionHistoryScreen
+import com.amteen.paisa.ui.screen.history.TransactionHistoryViewModel
 import com.amteen.paisa.ui.screen.more.MoreScreen
+import com.amteen.paisa.ui.screen.transaction.AddEditTransactionScreen
+import com.amteen.paisa.ui.screen.transaction.AddEditTransactionViewModel
+import com.amteen.paisa.ui.screen.transaction.TransactionDetailScreen
+import com.amteen.paisa.ui.screen.transaction.TransactionDetailViewModel
 
 @Composable
 fun PaisaNavHost(
@@ -78,10 +90,19 @@ fun PaisaNavHost(
                 )
             }
             composable(Routes.TRANSACTIONS) {
-                PlaceholderScreen(
-                    title = stringResource(R.string.title_expenses),
-                    phaseNote = "Transaction history with search, filters and sorting " +
-                        "arrives in Phase 3.",
+                val container = LocalAppContainer.current
+                val viewModel: TransactionHistoryViewModel = viewModel(
+                    factory = ViewModelFactories.transactionHistory(container),
+                )
+                val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+                TransactionHistoryScreen(
+                    state = state,
+                    onEvent = viewModel::onEvent,
+                    onTransactionClick = { navController.navigate(Routes.transactionDetail(it)) },
+                    onAddTransaction = {
+                        navController.navigate(Routes.addTransaction(TransactionTypeArg.EXPENSE))
+                    },
                 )
             }
             composable(Routes.REPORTS) {
@@ -101,37 +122,74 @@ fun PaisaNavHost(
                     navArgument(Routes.ARG_TYPE) { type = NavType.StringType },
                 ),
             ) { entry ->
-                val type = entry.arguments?.getString(Routes.ARG_TYPE)
-                val isIncome = type == TransactionTypeArg.INCOME
-                PlaceholderScreen(
-                    title = stringResource(
-                        if (isIncome) R.string.title_add_income else R.string.title_add_expense,
-                    ),
-                    phaseNote = "Fast transaction entry arrives in Phase 3.",
+                val container = LocalAppContainer.current
+                val type = if (entry.arguments?.getString(Routes.ARG_TYPE) == TransactionTypeArg.INCOME) {
+                    TransactionType.INCOME
+                } else {
+                    TransactionType.EXPENSE
+                }
+                val viewModel: AddEditTransactionViewModel = viewModel(
+                    factory = ViewModelFactories.addEditTransaction(container, null, type),
+                )
+                val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+                AddEditTransactionScreen(
+                    state = state,
+                    onEvent = viewModel::onEvent,
                     onBack = navController::popBackStack,
                 )
             }
+
             composable(
                 route = Routes.TRANSACTION_DETAIL_ROUTE,
                 arguments = listOf(
                     navArgument(Routes.ARG_ID) { type = NavType.StringType },
                 ),
-            ) {
-                PlaceholderScreen(
-                    title = stringResource(R.string.title_transaction_details),
-                    phaseNote = "Transaction details arrive in Phase 3.",
+            ) { entry ->
+                val container = LocalAppContainer.current
+                val id = entry.arguments?.getString(Routes.ARG_ID).orEmpty()
+                val viewModel: TransactionDetailViewModel = viewModel(
+                    factory = ViewModelFactories.transactionDetail(container, id),
+                )
+                val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+                // Returning from the edit screen must show the new values. A reload
+                // on resume is cheaper than holding a flow open for one record.
+                LifecycleResumeEffect(id) {
+                    viewModel.load()
+                    onPauseOrDispose { }
+                }
+
+                TransactionDetailScreen(
+                    state = state,
+                    onEvent = viewModel::onEvent,
                     onBack = navController::popBackStack,
+                    onEdit = { navController.navigate(Routes.editTransaction(it)) },
                 )
             }
+
             composable(
                 route = Routes.EDIT_TRANSACTION_ROUTE,
                 arguments = listOf(
                     navArgument(Routes.ARG_ID) { type = NavType.StringType },
                 ),
-            ) {
-                PlaceholderScreen(
-                    title = stringResource(R.string.title_edit_transaction),
-                    phaseNote = "Editing arrives in Phase 3.",
+            ) { entry ->
+                val container = LocalAppContainer.current
+                val id = entry.arguments?.getString(Routes.ARG_ID).orEmpty()
+                val viewModel: AddEditTransactionViewModel = viewModel(
+                    factory = ViewModelFactories.addEditTransaction(
+                        container = container,
+                        transactionId = id,
+                        // Overridden by the loaded record; only a fallback for the
+                        // brief moment before it arrives.
+                        type = TransactionType.EXPENSE,
+                    ),
+                )
+                val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+                AddEditTransactionScreen(
+                    state = state,
+                    onEvent = viewModel::onEvent,
                     onBack = navController::popBackStack,
                 )
             }
