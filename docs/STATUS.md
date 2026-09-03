@@ -1,7 +1,7 @@
 # Project Status
 
-**Last updated:** 2026-09-02, end of session
-**Repo:** `paisa-tracker` · **Package:** `com.amteen.paisa` · **Branch:** `main` (no commits yet)
+**Last updated:** 2026-09-03
+**Repo:** `paisa-tracker` · **Package:** `com.amteen.paisa` · **Branch:** `main`
 
 ---
 
@@ -11,8 +11,8 @@
 |---|---|---|
 | **0** | README, CLAUDE.md, .gitignore | ✅ **Done** |
 | **1** | Gradle setup, theme, navigation skeleton | ✅ **Done — `BUILD SUCCESSFUL`** |
-| 2 | Data layer (models, Money, JsonFileStore, repositories) | ⬜ **Next** |
-| 3 | Transactions (add/edit/delete/list/search) | ⬜ |
+| **2** | Data layer (models, Money, JsonFileStore, repositories) | ✅ **Done — 55 tests green** |
+| 3 | Transactions (add/edit/delete/list/search) | 🔨 **In progress** |
 | 4 | Categories & subcategories | ⬜ |
 | 5 | Dashboard | ⬜ |
 | 6 | Budgets + local alerts | ⬜ |
@@ -27,23 +27,13 @@ Full phase detail: [PROJECT_PLAN.md](PROJECT_PLAN.md).
 
 ---
 
-## ⚠️ Uncommitted work
+## Commits
 
-**Nothing has been committed yet.** The entire project is working-tree only. Making the initial
-commit is the first thing to do after the restart.
+One commit per phase. Nothing is pushed yet — the remote has no `main` branch.
 
-```
- M .gitignore
- M CLAUDE.md
- M README.md
-?? app/
-?? build.gradle.kts
-?? gradle.properties
-?? gradle/
-?? gradlew
-?? gradlew.bat
-?? settings.gradle.kts
-```
+| Commit | Phase |
+|---|---|
+| `cf67f8a` | Phase 0–1: docs, Gradle setup, Material 3 theme, navigation skeleton |
 
 Verify the identity before committing — this repo must **not** be authored by the global work
 account:
@@ -58,11 +48,44 @@ git config --local user.email     # must print mateena946@gmail.com
 | **This repo (local)** | `AbdulMateen <mateena946@gmail.com>` |
 | Remote | `git@github-personal:amteen56/paisa-tracker.git` |
 
-Suggested first commit message:
+---
 
-```
-Phase 0-1: project docs, Gradle setup, Material 3 theme, navigation skeleton
-```
+## What was built in Phase 2
+
+The whole data layer, and it is testable on the JVM with no emulator — `JsonFileStore` takes a
+plain `File` root, so the storage tests run against a real temp directory rather than a mock.
+
+- `core/money/` — `Money` (`Long` minor units, throws on mixed-currency arithmetic, `Math.addExact`
+  so overflow is reported rather than wrapped), `MoneyFormatter` (the only place a money string is
+  built), `CurrencyConverter` (the only place rounding happens — `BigDecimal`, HALF_UP, once, at
+  the target precision), `AmountParser` (grouping commas, leading/trailing dots, non-Latin digits)
+- `core/time/` — `DateRange`, `PeriodFilter` (takes `today` as a parameter, so it is deterministic),
+  `DateFormatters`
+- `core/result/` — `AppResult` / `AppError`, so storage failures reach the UI as a message
+- `domain/model/` — Transaction, Category, Budget, Currency, PaymentMethod, AppSettings,
+  `CurrencyTable`, `TransactionDetails` / `TransactionQuery` / `TransactionTotals`
+- `domain/repository/` — the 6 interfaces, free of Android, `File` and DTO types
+- `data/file/JsonFileStore.kt` — atomic `tmp → fsync → rename`, a `.bak` sidecar kept on every
+  write, per-file `Mutex`, and the full recovery ladder
+- `data/dto/` + `data/mapper/` — wire format decoupled from the domain; every field defaulted
+- `data/repository/` — 6 implementations; transactions sharded by month
+- `data/migration/SchemaMigrations.kt` — empty chain, ready for the first bump
+- `di/AppContainer.kt` — wired into `PaisaApp.onCreate()`, exposes `ready`
+
+**55 unit tests, all green.** The ones that earn their keep: cross-month edit moves the record
+between shards (and survives a restart), deleting the last transaction removes the shard file, a
+truncated file is quarantined and recovered from the sidecar, a newer `schemaVersion` is neither
+read nor overwritten, and 20 concurrent writes to one file do not interleave.
+
+### Two decisions worth knowing about
+
+**Recovery reads a `.bak` sidecar, not `backup/`.** `JsonFileStore` keeps the previous version of
+each file as `X.json.bak` on every write and recovers from that. Restoring a single file out of a
+whole-app `backup/backup-<date>.json` snapshot needs the import pipeline, which is Phase 10. The
+sidecar gives real per-file recovery now, at the cost of one extra rename per write.
+
+**A corrupt file is not re-seeded.** A *missing* file writes the seed; a *corrupt* one does not.
+Silently replacing quarantined data with defaults would look to the user like their data vanished.
 
 ---
 
@@ -119,21 +142,24 @@ Android Studio is unaffected — it supplies its own JDK.
 
 ---
 
-## Next session: start here
+## Next: Phase 3 — transactions
 
-1. **Commit Phase 0–1** (see above).
-2. **Verify the emulator boots** — see [EMULATOR_TROUBLESHOOTING.md](EMULATOR_TROUBLESHOOTING.md).
-   It was left mid-recovery; a `-wipe-data` cold boot was in progress when the PC was restarted.
-3. **Begin Phase 2 — data layer.** Deliverables:
-   - `core/money/` — `Money` (`Long` minor units), `MoneyFormatter`, `CurrencyConverter`
-   - `domain/model/` — Transaction, Category, Budget, Currency, PaymentMethod, AppSettings
-   - `domain/repository/` — the 6 interfaces
-   - `data/file/JsonFileStore.kt` — atomic `tmp → fsync → rename` writes + the recovery ladder
-   - `data/dto/` + `data/mapper/` — wire format decoupled from the domain
-   - `data/seed/DefaultData.kt` — predefined categories, currencies, payment methods
-   - `data/repository/` — the 6 file-backed implementations
-   - `di/AppContainer.kt` — wired into `PaisaApp.onCreate()`
-   - Unit tests for `Money` arithmetic and `JsonFileStore` atomicity/corruption recovery
+The data layer is done, so this is the first phase the user can actually *see*. Deliverables:
 
-The architectural rules that Phase 2 must follow are in [../CLAUDE.md](../CLAUDE.md) — money is
-never a `Double`, writes are always atomic, reads recover rather than crash.
+- `ui/components/` — `AmountText`, `TransactionRow`, `ConfirmDialog`, `ErrorState`
+- `ui/icons/CategoryIcons.kt` — stable `iconKey` → `ImageVector`, with a fallback
+- `ui/screen/transaction/` — the shared add/edit form (type-switched), plus the detail screen
+- `ui/screen/history/` — search, filters, 4 sort modes, sticky date headers
+- `di/ViewModelFactories.kt`, and the real screens registered in `PaisaNavHost`
+
+The bar for the add flow is **5–10 seconds** for "Rs. 800, Food / Fast Food, Burger" — autofocused
+amount field, numeric keyboard, category chips rather than a dropdown. Any change that adds a tap
+to that flow has to justify itself.
+
+**Also still open:** the emulator was left mid-recovery before the restart — a `-wipe-data` cold
+boot was in progress and never confirmed. See
+[EMULATOR_TROUBLESHOOTING.md](EMULATOR_TROUBLESHOOTING.md) step 5 before running on device.
+
+The architectural rules every phase is held to are in [../CLAUDE.md](../CLAUDE.md) — money is never
+a `Double`, writes are always atomic, reads recover rather than crash, and a composable renders
+state rather than computing it.
