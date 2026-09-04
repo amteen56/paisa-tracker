@@ -47,10 +47,22 @@ data class ImportPreview(
     val exportedAt: Instant?,
 
     val incomingTransactions: Int,
-    val duplicateTransactions: Int,
     val incomingCategories: Int,
     val incomingPaymentMethods: Int,
     val incomingBudgets: Int,
+
+    /**
+     * Records already on this device, which a merge skips.
+     *
+     * Counted for all four types, not just transactions. Only transactions used to
+     * carry a count, so a merge that recognised and skipped twenty categories
+     * reported "0 categories" and never mentioned them — which reads as though the
+     * backup were empty rather than as a match.
+     */
+    val duplicateTransactions: Int,
+    val duplicateCategories: Int,
+    val duplicatePaymentMethods: Int,
+    val duplicateBudgets: Int,
 
     /** Records the file held but this build could not read. Reported, then dropped. */
     val unreadable: List<String>,
@@ -76,6 +88,21 @@ data class ImportPreview(
 
     /** Drives the confirmation wording: a Replace destroys, a merge does not. */
     val isDestructive: Boolean get() = mode == ImportMode.REPLACE
+
+    /** Anything the file held that this device already has. */
+    val totalDuplicates: Int
+        get() = duplicateTransactions + duplicateCategories +
+            duplicatePaymentMethods + duplicateBudgets
+
+    /**
+     * The file matches what is already here, so a merge would do nothing.
+     *
+     * This is a **success**, not a failure — re-importing your own backup is meant to
+     * be a no-op — and the dialog says so in a sentence rather than showing four
+     * zeros and a disabled button, which reads like a broken import.
+     */
+    val isAlreadyUpToDate: Boolean
+        get() = mode == ImportMode.MERGE && !hasAnythingToDo && totalDuplicates > 0
 
     data class Candidate(
         val settings: AppSettings?,
@@ -323,10 +350,15 @@ class PrepareImportUseCase(
             source = ImportSource.JSON,
             exportedAt = snapshot.exportedAt,
             incomingTransactions = if (replace) incoming.size else newTransactions.size,
-            duplicateTransactions = if (replace) 0 else incoming.size - newTransactions.size,
             incomingCategories = if (replace) snapshot.categories.size else newCategories.size,
             incomingPaymentMethods = if (replace) snapshot.paymentMethods.size else newMethods.size,
             incomingBudgets = if (replace) snapshot.budgets.size else newBudgets.size,
+            // A Replace takes everything, so nothing is "skipped as a duplicate".
+            duplicateTransactions = if (replace) 0 else incoming.size - newTransactions.size,
+            duplicateCategories = if (replace) 0 else snapshot.categories.size - newCategories.size,
+            duplicatePaymentMethods =
+                if (replace) 0 else snapshot.paymentMethods.size - newMethods.size,
+            duplicateBudgets = if (replace) 0 else snapshot.budgets.size - newBudgets.size,
             unreadable = unreadable,
             repairedReferences = repairs.size,
             replacedTransactions = if (replace) existingTransactions.size else 0,
@@ -449,10 +481,15 @@ class PrepareImportUseCase(
             source = ImportSource.CSV,
             exportedAt = null,
             incomingTransactions = incoming.size,
-            duplicateTransactions = duplicates,
             incomingCategories = createdCategories,
             incomingPaymentMethods = createdMethods,
             incomingBudgets = 0,
+            duplicateTransactions = duplicates,
+            // A CSV names categories and methods rather than carrying records, so a
+            // name that already exists is a match, not a skipped duplicate.
+            duplicateCategories = 0,
+            duplicatePaymentMethods = 0,
+            duplicateBudgets = 0,
             unreadable = unreadable,
             repairedReferences = 0,
             replacedTransactions = if (replace) existingTransactions.size else 0,

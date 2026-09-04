@@ -172,33 +172,42 @@ class GetDashboardSummaryUseCaseTest {
     }
 
     // -- Daily average ------------------------------------------------------
+    //
+    // "today" is the 12th, so a month-to-date divisor is 12 unless the user started
+    // tracking later than the 1st.
 
     @Test
-    fun `the average covers a rolling ten days, not the month so far`() = runTest {
-        // Tracking since June, so the divisor is the full ten days.
+    fun `the average covers the month so far, not a rolling window`() = runTest {
+        // Tracking since August, so the divisor is the full 12 elapsed days.
         repository.save(transaction("history", 1_000, date = LocalDate.of(2026, 8, 1)))
-        repository.save(transaction("a", 100_000, date = today.minusDays(9)))
-        repository.save(transaction("b", 100_000))
+        // The 1st is 11 days back — outside the old ten-day window, and it must now
+        // count. That is the whole point of the change.
+        repository.save(transaction("first", 60_000, date = LocalDate.of(2026, 9, 1)))
+        repository.save(transaction("today", 60_000))
 
         val result = summary()
 
-        assertEquals(10, result.averageDays)
-        assertEquals(20_000L, result.dailyAverageMinor)
+        assertEquals(12, result.averageDays)
+        // 120,000 over 12 days.
+        assertEquals(10_000L, result.dailyAverageMinor)
     }
 
     @Test
-    fun `spending older than the window is left out of the average`() = runTest {
-        repository.save(transaction("history", 1_000, date = LocalDate.of(2026, 8, 1)))
-        // The tenth day back is in; the eleventh is not.
-        repository.save(transaction("edge-in", 100_000, date = today.minusDays(9)))
-        repository.save(transaction("edge-out", 900_000, date = today.minusDays(10)))
+    fun `last month's spending is left out of the average`() = runTest {
+        repository.save(transaction("august", 900_000, date = LocalDate.of(2026, 8, 30)))
+        repository.save(transaction("september", 120_000, date = LocalDate.of(2026, 9, 2)))
 
-        assertEquals(10_000L, summary().dailyAverageMinor)
+        val result = summary()
+
+        // Only September counts, even though August is loaded for the chart.
+        assertEquals(12, result.averageDays)
+        assertEquals(10_000L, result.dailyAverageMinor)
     }
 
     @Test
     fun `a new user's average divides by the days they have actually been tracking`() = runTest {
-        // Started three days ago. Dividing by ten would report a third of the truth.
+        // Started three days ago. Dividing by 12 would report a quarter of the truth
+        // on the strength of nine days that predate their first entry.
         repository.save(transaction("a", 30_000, date = today.minusDays(2)))
         repository.save(transaction("b", 30_000))
 
@@ -209,25 +218,31 @@ class GetDashboardSummaryUseCaseTest {
     }
 
     @Test
-    fun `a future dated transaction cannot shorten the window`() = runTest {
+    fun `a future dated transaction is not averaged and cannot stretch the divisor`() = runTest {
         repository.save(transaction("history", 0, date = LocalDate.of(2026, 8, 1)))
-        repository.save(transaction("today", 1_000))
-        repository.save(transaction("future", 50_000, date = today.plusDays(4)))
+        repository.save(transaction("today", 1_200))
+        // Dated later this month: it belongs in the month's total but must not be
+        // divided by days that have not happened.
+        repository.save(transaction("future", 500_000, date = today.plusDays(4)))
 
         val result = summary()
 
-        assertEquals(10, result.averageDays)
-        // ...and spending that has not happened yet is not averaged either.
+        assertEquals(12, result.averageDays)
         assertEquals(100L, result.dailyAverageMinor)
+        // ...while the month's total still includes it.
+        assertEquals(501_200L, result.totals.expense.amountMinor)
+        assertEquals(1_200L, result.monthToDateExpenseMinor)
     }
 
     @Test
     fun `the average rounds half up and never touches a double`() = runTest {
-        repository.save(transaction("history", 0, date = LocalDate.of(2026, 8, 1)))
-        // 105 minor units over 10 days is 10.5, which must round to 11.
-        repository.save(transaction("a", 105))
+        // Started two days ago, so 105 over 2 days is 52.5 and must round to 53.
+        repository.save(transaction("a", 105, date = today.minusDays(1)))
 
-        assertEquals(11L, summary().dailyAverageMinor)
+        val result = summary()
+
+        assertEquals(2, result.averageDays)
+        assertEquals(53L, result.dailyAverageMinor)
     }
 
     @Test
@@ -264,6 +279,23 @@ class GetDashboardSummaryUseCaseTest {
 
             assertNull(summary().expenseChangePercent)
         }
+
+    @Test
+    fun `both sides of the comparison are to-date, so a future entry cannot skew it`() = runTest {
+        repository.save(transaction("this", 60_000))
+        // Dated later this month. It counts towards the month's total but has no
+        // counterpart in last month's elapsed days, so including it here would
+        // report a rise the user has not actually made yet.
+        repository.save(transaction("future", 500_000, date = today.plusDays(5)))
+        repository.save(transaction("prev", 60_000, date = LocalDate.of(2026, 8, 5)))
+
+        val result = summary()
+
+        assertEquals(560_000L, result.totals.expense.amountMinor)
+        assertEquals(60_000L, result.monthToDateExpenseMinor)
+        // 60,000 against 60,000 is flat — not the +833% the whole-month figure gives.
+        assertEquals(0.0, result.expenseChangePercent!!, 0.01)
+    }
 
     // -- Seven-day window ---------------------------------------------------
 
@@ -440,9 +472,15 @@ class GetDashboardSummaryUseCaseTest {
     }
 
     @Test
-    fun `budgets closest to their limit come first`() = runTest {
+    fun `the strip follows the user's own budget order, not how close each one is`() = runTest {
         budgets.upsert(
-            Budget(id = "safe", categoryId = "cat-food", limitMinor = 1_000_000, currencyCode = "PKR"),
+            Budget(
+                id = "safe",
+                categoryId = "cat-food",
+                limitMinor = 1_000_000,
+                currencyCode = "PKR",
+                sortOrder = 1,
+            ),
         )
         budgets.upsert(
             Budget(
@@ -450,12 +488,40 @@ class GetDashboardSummaryUseCaseTest {
                 categoryId = "cat-transport",
                 limitMinor = 30_000,
                 currencyCode = "PKR",
+                sortOrder = 2,
             ),
         )
         repository.save(transaction("f", 50_000, categoryId = "cat-food"))
         repository.save(transaction("t", 29_000, categoryId = "cat-transport"))
 
-        assertEquals(listOf("tight", "safe"), summary().budgets.map { it.id })
+        // "tight" is at 97% and "safe" at 5%, but the user put safe first and an
+        // order that rearranges itself as spending moves is disorienting on a screen
+        // you look at every day. BudgetOrder.AT_RISK still exists for the other view.
+        assertEquals(listOf("safe", "tight"), summary().budgets.map { it.id })
+    }
+
+    @Test
+    fun `at-risk ordering is still available for callers that want it`() = runTest {
+        val safe = Budget(
+            id = "safe", categoryId = "cat-food", limitMinor = 1_000_000,
+            currencyCode = "PKR", sortOrder = 1,
+        )
+        val tight = Budget(
+            id = "tight", categoryId = "cat-transport", limitMinor = 30_000,
+            currencyCode = "PKR", sortOrder = 2,
+        )
+        repository.save(transaction("f", 50_000, categoryId = "cat-food"))
+        repository.save(transaction("t", 29_000, categoryId = "cat-transport"))
+
+        val ordered = GetBudgetStatusUseCase()(
+            budgets = listOf(safe, tight),
+            transactions = repository.getAll(),
+            month = YearMonth.from(today),
+            table = com.amteen.paisa.domain.model.CurrencyTable(listOf(pkr), "PKR"),
+            order = BudgetOrder.AT_RISK,
+        )
+
+        assertEquals(listOf("tight", "safe"), ordered.map { it.id })
     }
 
     @Test

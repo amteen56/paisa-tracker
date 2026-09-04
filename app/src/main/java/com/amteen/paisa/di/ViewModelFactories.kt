@@ -121,6 +121,7 @@ object ViewModelFactories {
                 budgetStatus = container.getBudgetStatus,
                 archiveBudget = container.archiveBudget,
                 deleteBudget = container.deleteBudget,
+                reorderBudgets = container.reorderBudgets,
             )
         }
     }

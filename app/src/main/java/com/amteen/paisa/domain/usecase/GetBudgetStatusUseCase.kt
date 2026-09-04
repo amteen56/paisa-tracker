@@ -10,6 +10,34 @@ import com.amteen.paisa.domain.model.Transaction
 import java.time.YearMonth
 
 /**
+ * How a list of budgets is ordered.
+ *
+ * The dashboard strip used to force [AT_RISK] on the grounds that it is a warning
+ * surface and the budget in trouble must not be the one cut off. Budgets are now
+ * user-orderable, and the user's arrangement wins by default — priority is something
+ * only they can express, and an order that rearranges itself as spending moves is
+ * disorienting on a screen you look at every day.
+ *
+ * [AT_RISK] is kept because the argument for it was a real one, and switching the
+ * strip back is a one-word change.
+ */
+enum class BudgetOrder {
+    /** The order the user dragged them into. Ties fall back to the label. */
+    USER,
+
+    /** Closest to its limit first. */
+    AT_RISK;
+
+    internal val comparator: Comparator<BudgetSummary>
+        get() = when (this) {
+            USER -> compareBy<BudgetSummary> { it.progress.budget.sortOrder }
+                .thenBy { it.label }
+            AT_RISK -> compareByDescending<BudgetSummary> { it.progress.percent }
+                .thenBy { it.label }
+        }
+}
+
+/**
  * A budget with its derived usage and the names needed to render it.
  *
  * [category] is nullable for the same reason it is on `TransactionDetails`: a budget
@@ -60,6 +88,7 @@ class GetBudgetStatusUseCase {
         month: YearMonth,
         table: CurrencyTable,
         categories: List<Category> = emptyList(),
+        order: BudgetOrder = BudgetOrder.USER,
     ): List<BudgetSummary> {
         val applicable = budgets.filter { it.appliesTo(month) }
         if (applicable.isEmpty()) return emptyList()
@@ -81,12 +110,7 @@ class GetBudgetStatusUseCase {
                     currency = table.currency(budget.currencyCode),
                 )
             }
-            // Closest to its limit first: the strip is a warning surface, so the
-            // budget in trouble must not be the one scrolled off the end.
-            .sortedWith(
-                compareByDescending<BudgetSummary> { it.progress.percent }
-                    .thenBy { it.label },
-            )
+            .sortedWith(order.comparator)
     }
 
     /**

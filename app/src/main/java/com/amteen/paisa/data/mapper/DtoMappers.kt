@@ -143,6 +143,7 @@ fun BudgetDto.toDomain(): Budget? {
         limitMinor = if (limitMinor < 0) 0L else limitMinor,
         currencyCode = currencyCode,
         period = parseYearMonth(period),
+        sortOrder = sortOrder,
         archived = archived,
     )
 }
@@ -154,6 +155,7 @@ fun Budget.toDto() = BudgetDto(
     limitMinor = limitMinor,
     currencyCode = currencyCode,
     period = period?.toString(),
+    sortOrder = sortOrder,
     archived = archived,
 )
 

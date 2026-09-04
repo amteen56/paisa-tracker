@@ -105,6 +105,9 @@ interface BudgetRepository {
 
     suspend fun hardDelete(id: String)
 
+    /** Rewrites [Budget.sortOrder] to match the given order. */
+    suspend fun reorder(orderedIds: List<String>)
+
     suspend fun replaceAll(budgets: List<Budget>)
 }
 

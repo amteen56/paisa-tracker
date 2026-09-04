@@ -62,6 +62,21 @@ sealed interface BudgetListEvent {
     data object RemoveDismissed : BudgetListEvent
     data class ArchiveToggled(val id: String, val archived: Boolean) : BudgetListEvent
 
+    /**
+     * A drag moved [fromId] to where [toId] was. Optimistic only — the new order is
+     * held in the ViewModel and written once on [ReorderCommitted].
+     */
+    data class Moved(val fromId: String, val toId: String) : BudgetListEvent
+
+    /** The finger lifted: persist whatever the drag arrived at. */
+    data object ReorderCommitted : BudgetListEvent
+
+    /**
+     * One step up or down. A long-press drag is not operable with TalkBack on, so it
+     * can never be the only way to reorder — see `DragDropList`.
+     */
+    data class MoveStep(val id: String, val up: Boolean) : BudgetListEvent
+
     data class AlertsToggled(val enabled: Boolean) : BudgetListEvent
     data object NotificationPermissionRequested : BudgetListEvent
 

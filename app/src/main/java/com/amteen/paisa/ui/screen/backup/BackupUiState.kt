@@ -38,13 +38,25 @@ sealed interface BackupEvent {
     data object ExportJsonRequested : BackupEvent
     data object ExportCsvRequested : BackupEvent
 
-    /** The SAF destination came back — or `null` if the user cancelled. */
-    data class ExportDestinationChosen(val text: String?) : BackupEvent
+    /**
+     * The bytes reached the destination the user chose.
+     *
+     * Success and failure are separate events rather than one nullable message,
+     * because a write that silently did nothing is the worst outcome an export can
+     * have: the user walks away believing they have a backup.
+     */
+    data class ExportSucceeded(val fileName: String) : BackupEvent
+    data class ExportFailed(val reason: String) : BackupEvent
+
+    /** The user backed out of the picker. Not an error, so it says nothing. */
     data object ExportDismissed : BackupEvent
 
     /** The user picked a file to import; [text] is its contents. */
     data class FileRead(val text: String, val source: ImportSource, val mode: ImportMode) :
         BackupEvent
+
+    /** The chosen file could not be read at all. */
+    data class FileReadFailed(val reason: String) : BackupEvent
 
     data object PreviewDismissed : BackupEvent
     data object PreviewConfirmed : BackupEvent

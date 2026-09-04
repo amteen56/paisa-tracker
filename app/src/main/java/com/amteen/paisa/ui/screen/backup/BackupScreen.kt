@@ -42,6 +42,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -79,7 +80,11 @@ fun BackupScreen(
 
     // Which flavour of import the user started, so the picker result knows how to
     // parse what comes back.
-    var pendingImport by remember { mutableStateOf<Pair<ImportSource, ImportMode>?>(null) }
+    // rememberSaveable, not remember: the SAF picker is another process, and losing
+    // this across a process death would silently discard the file the user chose.
+    var pendingImport by rememberSaveable {
+        mutableStateOf<Pair<ImportSource, ImportMode>?>(null)
+    }
 
     LaunchedEffect(state.message) {
         state.message?.let {
@@ -98,17 +103,21 @@ fun BackupScreen(
         contract = ActivityResultContracts.CreateDocument(MIME_ANY),
     ) { uri ->
         val export = state.pendingExport
-        if (uri == null || export == null) {
-            onEvent(BackupEvent.ExportDismissed)
-            return@rememberLauncherForActivityResult
+        when {
+            // Cancelling is not a failure, so it says nothing.
+            uri == null -> onEvent(BackupEvent.ExportDismissed)
+
+            // The held document is gone — realistically only after process death
+            // mid-picker. Say so rather than looking like a successful export.
+            export == null -> onEvent(
+                BackupEvent.ExportFailed("The export was lost before it could be saved. Try again."),
+            )
+
+            else -> when (val outcome = context.writeText(uri, export.content)) {
+                is IoOutcome.Written -> onEvent(BackupEvent.ExportSucceeded(export.suggestedName))
+                is IoOutcome.Failed -> onEvent(BackupEvent.ExportFailed(outcome.reason))
+            }
         }
-        val written = context.writeText(uri, export.content)
-        onEvent(
-            BackupEvent.ExportDestinationChosen(
-                if (written) "Exported ${export.suggestedName}." else null,
-            ),
-        )
-        if (!written) onEvent(BackupEvent.ExportDismissed)
     }
 
     val openLauncher = rememberLauncherForActivityResult(
@@ -116,10 +125,17 @@ fun BackupScreen(
     ) { uri ->
         val request = pendingImport
         pendingImport = null
-        if (uri == null || request == null) return@rememberLauncherForActivityResult
-        val text = context.readText(uri)
-        if (text != null) {
-            onEvent(BackupEvent.FileRead(text, request.first, request.second))
+        when {
+            uri == null -> Unit // Cancelled.
+
+            request == null -> onEvent(
+                BackupEvent.FileReadFailed("Lost track of that import. Pick the file again."),
+            )
+
+            else -> when (val read = context.readText(uri)) {
+                is IoRead.Text -> onEvent(BackupEvent.FileRead(read.value, request.first, request.second))
+                is IoRead.Failed -> onEvent(BackupEvent.FileReadFailed(read.reason))
+            }
         }
     }
 
@@ -312,10 +328,10 @@ private fun ImportPreviewDialog(
         title = {
             Text(
                 stringResource(
-                    if (preview.isDestructive) {
-                        R.string.backup_preview_replace_title
-                    } else {
-                        R.string.backup_preview_merge_title
+                    when {
+                        preview.isAlreadyUpToDate -> R.string.backup_preview_uptodate_title
+                        preview.isDestructive -> R.string.backup_preview_replace_title
+                        else -> R.string.backup_preview_merge_title
                     },
                 ),
             )
@@ -335,26 +351,45 @@ private fun ImportPreviewDialog(
                     )
                 }
 
-                Text(
-                    stringResource(
-                        R.string.backup_preview_counts,
-                        preview.incomingTransactions,
-                        preview.incomingCategories,
-                        preview.incomingPaymentMethods,
-                        preview.incomingBudgets,
-                    ),
-                )
-
-                if (preview.duplicateTransactions > 0) {
+                if (preview.isAlreadyUpToDate) {
+                    // A row of zeros reads as a broken import. Naming what was
+                    // recognised makes it obvious the file was read correctly and
+                    // simply had nothing new in it.
+                    Text(stringResource(R.string.backup_preview_uptodate_body))
                     Text(
-                        text = pluralStringResource(
-                            R.plurals.backup_preview_duplicates,
+                        text = stringResource(
+                            R.string.backup_preview_uptodate_detail,
                             preview.duplicateTransactions,
-                            preview.duplicateTransactions,
+                            preview.duplicateCategories,
+                            preview.duplicatePaymentMethods,
+                            preview.duplicateBudgets,
                         ),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                } else {
+                    Text(
+                        stringResource(
+                            R.string.backup_preview_counts,
+                            preview.incomingTransactions,
+                            preview.incomingCategories,
+                            preview.incomingPaymentMethods,
+                            preview.incomingBudgets,
+                        ),
+                    )
+
+                    // Only the non-zero ones, so an ordinary import stays terse.
+                    if (preview.totalDuplicates > 0) {
+                        Text(
+                            text = pluralStringResource(
+                                R.plurals.backup_preview_skipped,
+                                preview.totalDuplicates,
+                                preview.totalDuplicates,
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
 
                 if (preview.repairedReferences > 0) {
@@ -413,20 +448,30 @@ private fun ImportPreviewDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onConfirm, enabled = preview.hasAnythingToDo) {
-                Text(
-                    stringResource(
-                        if (preview.isDestructive) {
-                            R.string.backup_preview_replace_confirm
-                        } else {
-                            R.string.backup_preview_merge_confirm
-                        },
-                    ),
-                )
+            if (preview.hasAnythingToDo) {
+                TextButton(onClick = onConfirm) {
+                    Text(
+                        stringResource(
+                            if (preview.isDestructive) {
+                                R.string.backup_preview_replace_confirm
+                            } else {
+                                R.string.backup_preview_merge_confirm
+                            },
+                        ),
+                    )
+                }
+            } else {
+                // Nothing to do, so there is nothing to confirm. A greyed-out "Add"
+                // beside a row of counts just leaves the user wondering what is wrong.
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(R.string.calendar_day_close))
+                }
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+            if (preview.hasAnythingToDo) {
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+            }
         },
     )
 }
@@ -472,25 +517,62 @@ private fun BackupBusy.label(): String = stringResource(
 )
 
 /**
- * Writes through the content resolver.
+ * Writes through the content resolver, reporting *why* it failed.
  *
- * Failures are swallowed into a boolean: the user picked the destination, so the only
- * realistic causes are a revoked permission or a removed SD card, and neither is
- * something a stack trace helps with.
+ * The previous version collapsed every failure into a boolean, and the caller then
+ * turned `false` into a null message — which showed nothing at all. An export that
+ * quietly does nothing is the worst outcome this screen has, because the user walks
+ * away believing they have a backup.
+ *
+ * It was also wrong: `openOutputStream(...)?.use { … } != null` tests the value of
+ * `use`, which is whatever the lambda returned — `flush()`, i.e. `Unit`. `Unit` is
+ * never null, so the check only ever meant "the stream opened and nothing threw".
  */
-private fun Context.writeText(uri: Uri, content: String): Boolean = try {
-    contentResolver.openOutputStream(uri, "wt")?.use { stream ->
-        stream.write(content.toByteArray(Charsets.UTF_8))
-        stream.flush()
-    } != null
+private fun Context.writeText(uri: Uri, content: String): IoOutcome = try {
+    val stream = contentResolver.openOutputStream(uri, "wt")
+    if (stream == null) {
+        IoOutcome.Failed("Could not open that location for writing.")
+    } else {
+        stream.use { out ->
+            out.write(content.toByteArray(Charsets.UTF_8))
+            out.flush()
+        }
+        IoOutcome.Written
+    }
 } catch (e: Exception) {
-    false
+    IoOutcome.Failed(e.readableReason("Could not write to that location."))
 }
 
-private fun Context.readText(uri: Uri): String? = try {
-    contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) }
+private fun Context.readText(uri: Uri): IoRead = try {
+    val stream = contentResolver.openInputStream(uri)
+    if (stream == null) {
+        IoRead.Failed("Could not open that file.")
+    } else {
+        IoRead.Text(stream.use { it.readBytes().toString(Charsets.UTF_8) })
+    }
 } catch (e: Exception) {
-    null
+    IoRead.Failed(e.readableReason("Could not read that file."))
+}
+
+private sealed interface IoOutcome {
+    data object Written : IoOutcome
+    data class Failed(val reason: String) : IoOutcome
+}
+
+private sealed interface IoRead {
+    data class Text(val value: String) : IoRead
+    data class Failed(val reason: String) : IoRead
+}
+
+/**
+ * A message worth showing.
+ *
+ * An exception's own text is often a bare path or a class name, so it is only used
+ * when it reads like a sentence; otherwise the caller's plain-English fallback wins.
+ */
+private fun Exception.readableReason(fallback: String): String {
+    val detail = message?.trim()
+    return if (detail.isNullOrEmpty() || detail.length > 120) fallback else "$fallback ($detail)"
 }
 
 /**

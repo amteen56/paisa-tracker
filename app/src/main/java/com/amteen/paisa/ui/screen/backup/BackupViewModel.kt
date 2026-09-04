@@ -53,16 +53,26 @@ class BackupViewModel(
                 suggestedName = "paisa-transactions-${today()}.csv",
             ) { exportCsv() }
 
-            is BackupEvent.ExportDestinationChosen -> {
-                // The screen has already written the bytes through the resolver; all
-                // that is left is to drop the held document and say what happened.
-                _uiState.update {
-                    it.copy(
-                        pendingExport = null,
-                        busy = BackupBusy.NONE,
-                        message = event.text,
-                    )
-                }
+            // The screen has already written the bytes through the resolver; all that
+            // is left is to drop the held document and say what happened.
+            is BackupEvent.ExportSucceeded -> _uiState.update {
+                it.copy(
+                    pendingExport = null,
+                    busy = BackupBusy.NONE,
+                    message = "Exported ${event.fileName}.",
+                )
+            }
+
+            is BackupEvent.ExportFailed -> _uiState.update {
+                it.copy(
+                    pendingExport = null,
+                    busy = BackupBusy.NONE,
+                    error = event.reason,
+                )
+            }
+
+            is BackupEvent.FileReadFailed -> _uiState.update {
+                it.copy(busy = BackupBusy.NONE, error = event.reason)
             }
 
             BackupEvent.ExportDismissed -> _uiState.update {

@@ -168,3 +168,19 @@ class DeleteBudgetUseCase(
         AppResult.Err(AppError.Storage("Could not delete the budget.", e))
     }
 }
+
+/**
+ * Rewrites the budget order after a drag or a Move up / Move down.
+ *
+ * Mirrors `ReorderCategoriesUseCase`. Called once when the gesture ends rather than
+ * on every swap — a drag across ten rows would otherwise be ten file writes for an
+ * order the user is still choosing.
+ */
+class ReorderBudgetsUseCase(private val budgets: BudgetRepository) {
+    suspend operator fun invoke(orderedIds: List<String>): AppResult<Unit> = try {
+        budgets.reorder(orderedIds)
+        AppResult.Success
+    } catch (e: Exception) {
+        AppResult.Err(AppError.Storage("Could not save the new order.", e))
+    }
+}

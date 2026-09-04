@@ -101,8 +101,8 @@
     <string name="home_daily_average">Daily average</string>
     <string name="home_nothing_today">Nothing spent yet</string>
     <plurals name="home_days_in">
-        <item quantity="one">Over the last day</item>
-        <item quantity="other">Over the last %1$d days</item>
+        <item quantity="one">So far this month, over 1 day</item>
+        <item quantity="other">So far this month, over %1$d days</item>
     </plurals>
     <string name="home_week_title">Last 7 days</string>
     <string name="home_week_empty">Nothing spent in the last 7 days.</string>
@@ -146,6 +146,7 @@
     <string name="budget_period_recurring">Every month</string>
     <string name="budget_period_single">One month only</string>
     <string name="budget_recurring_badge">Every month</string>
+    <string name="budget_reorder_hint">Press and hold a budget to drag it into a new order. The order is used here and on the dashboard.</string>
     <string name="budget_history_title">Recent months</string>
     <string name="budget_history_loading">Working out recent months…</string>
     <string name="budget_history_empty">No spending recorded against this budget yet.</string>
@@ -246,11 +247,14 @@
     <string name="backup_preview_merge_title">Add this data?</string>
     <string name="backup_preview_replace_title">Replace everything?</string>
     <string name="backup_preview_taken">Backup taken %1$s</string>
-    <string name="backup_preview_counts">%1$d transactions, %2$d categories, %3$d payment methods, %4$d budgets.</string>
-    <plurals name="backup_preview_duplicates">
-        <item quantity="one">%1$d is already on this device and will be skipped.</item>
-        <item quantity="other">%1$d are already on this device and will be skipped.</item>
+    <string name="backup_preview_uptodate_title">Already up to date</string>
+    <string name="backup_preview_uptodate_body">Nothing new to add — everything in this file is already on this device.</string>
+    <string name="backup_preview_uptodate_detail">Recognised and skipped: %1$d transactions, %2$d categories, %3$d payment methods, %4$d budgets.</string>
+    <plurals name="backup_preview_skipped">
+        <item quantity="one">%1$d record is already on this device and will be skipped.</item>
+        <item quantity="other">%1$d records are already on this device and will be skipped.</item>
     </plurals>
+    <string name="backup_preview_counts">%1$d transactions, %2$d categories, %3$d payment methods, %4$d budgets.</string>
     <plurals name="backup_preview_repaired">
         <item quantity="one">%1$d missing category will be recreated so nothing is orphaned.</item>
         <item quantity="other">%1$d missing categories will be recreated so nothing is orphaned.</item>

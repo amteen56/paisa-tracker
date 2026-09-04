@@ -44,6 +44,7 @@ import com.amteen.paisa.domain.usecase.GetMonthCalendarUseCase
 import com.amteen.paisa.domain.usecase.SaveBudgetUseCase
 import com.amteen.paisa.notification.BudgetAlertNotifier
 import com.amteen.paisa.notification.NotificationChannels
+import com.amteen.paisa.domain.usecase.ReorderBudgetsUseCase
 import com.amteen.paisa.domain.usecase.ReorderCategoriesUseCase
 import com.amteen.paisa.domain.usecase.ReorderPaymentMethodsUseCase
 import com.amteen.paisa.domain.usecase.SaveCategoryUseCase
@@ -174,6 +175,8 @@ class AppContainer(context: Context) {
     )
 
     val archiveBudget = ArchiveBudgetUseCase(budgetRepository)
+
+    val reorderBudgets = ReorderBudgetsUseCase(budgetRepository)
 
     val deleteBudget = DeleteBudgetUseCase(
         budgets = budgetRepository,

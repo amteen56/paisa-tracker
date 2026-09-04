@@ -123,6 +123,12 @@ class FakeBudgetRepository(initial: List<Budget> = emptyList()) : BudgetReposito
     override suspend fun hardDelete(id: String) {
         state.value = state.value.filterNot { it.id == id }
     }
+    override suspend fun reorder(orderedIds: List<String>) {
+        val position = orderedIds.withIndex().associate { (index, id) -> id to index }
+        state.value = state.value
+            .map { it.copy(sortOrder = position[it.id] ?: it.sortOrder) }
+            .sortedWith(compareBy({ it.sortOrder }, { it.id }))
+    }
     override suspend fun replaceAll(budgets: List<Budget>) {
         state.value = budgets
     }

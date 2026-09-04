@@ -87,6 +87,8 @@ data class BudgetDto(
     val currencyCode: String = "",
     /** `uuuu-MM`, or null for a budget that recurs every month. */
     val period: String? = null,
+    /** Defaulted, so a file written before budgets were orderable still parses. */
+    val sortOrder: Int = 0,
     val archived: Boolean = false,
 )
 

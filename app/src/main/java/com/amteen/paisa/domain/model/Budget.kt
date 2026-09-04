@@ -17,6 +17,14 @@ data class Budget(
     val limitMinor: Long,
     val currencyCode: String,
     val period: YearMonth? = null,
+    /**
+     * Position in the budgets list, lowest first.
+     *
+     * User-chosen, because the order people want is priority — rent before coffee —
+     * and no derivable ordering expresses that. Same field and same reorder
+     * mechanics as [Category] and [PaymentMethod].
+     */
+    val sortOrder: Int = 0,
     val archived: Boolean = false,
 ) {
     val limit: Money get() = Money(limitMinor, currencyCode)

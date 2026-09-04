@@ -1,6 +1,6 @@
 # Project Status
 
-**Last updated:** 2026-09-04 (Phase 7)
+**Last updated:** 2026-09-04 (post-release fixes)
 **Repo:** `paisa-tracker` · **Package:** `com.amteen.paisa` · **Branch:** `main`
 
 ---
@@ -22,6 +22,7 @@
 | **9** | Import/Export (JSON + CSV) | ✅ **Done — 290 tests green** |
 | **10** | Polish | ✅ **Done — 298 tests green** |
 | **11** | Unit tests & docs | ✅ **Done — 341 tests green, lint clean** |
+| — | Post-release fixes (budget order, month-to-date average, import/export reporting) | ✅ **Done — 353 tests green** |
 
 Full phase detail: [PROJECT_PLAN.md](PROJECT_PLAN.md).
 
@@ -52,6 +53,7 @@ One commit per phase, pushed to `origin/main` as soon as it is made.
 | `97f24e5` | Phase 9: import and export |
 | `68a86d0` | Phase 10: polish |
 | `a66db6b` | Phase 11: tests, docs and the lint pass |
+| _pending_ | Post-release: budget order, month-to-date average, import/export reporting |
 
 Verify the identity before committing — this repo must **not** be authored by the global work
 account:
@@ -996,13 +998,105 @@ Rs. 10. That is test data from a cut feature; clearing app data resets it cleanl
 
 ---
 
+## Post-release fixes
+
+Four items from a UI review of the finished app. Two were reviewed and closed with no
+change: transaction editing (the pencil button on the detail screen is fine) and the
+last-month comparison (already built, `HomeScreen.kt:371-383`).
+
+**353 unit tests, all green** (12 new). **Lint: 0 errors, 20 warnings** — 14 of them
+dependency upgrades left for a deliberate decision.
+
+### Budgets are reorderable, and the order reaches the dashboard
+
+`Budget` had **no `sortOrder` at all**, and `BudgetRepository` no `reorder` — categories
+and payment methods had both since Phase 4. So this was a vertical slice: model, DTO,
+mapper, repository, use case, UI.
+
+The DTO field is **defaulted**, so this is not a schema bump — a budgets file written
+before the field existed still parses and lands at 0. There are two tests for exactly
+that, one of which reorders an old file and checks the new order persists.
+
+Drag reuses `DragDropList` unchanged. Per the house rule in its own KDoc — *"drag-and-drop
+is unusable with a screen reader, so every screen using this must also offer an explicit
+move action"* — each budget card also gets **Move up / Move down** in its existing overflow
+menu plus the same two as semantics custom actions, using the `action_move_up` /
+`action_move_down` resources that already existed. The order is written once when the
+finger lifts, not per swap.
+
+**The dashboard strip now follows the user's order too**, which reverses a Phase 5/6
+decision worth naming: it used to sort by percent descending, on the grounds that the strip
+is a warning surface and the budget in trouble must not be the one cut off. The strip
+truncates to `MAX_BUDGET_ROWS`, so that argument was real. It is now a parameter —
+`BudgetOrder.USER` is the default and `BudgetOrder.AT_RISK` still exists, so switching back
+is one word. **Consequence to be aware of: an over-budget item can now sit below the cut.**
+
+### The daily average is month-to-date
+
+`AVERAGE_WINDOW = 10` and the rolling window are gone. The average is this month's expense
+÷ days elapsed.
+
+The original objection to month-to-date was that a true monthly average means loading every
+shard. That applied to a *multi-month* average — month-to-date needs only the current
+month's shard, which the dashboard already loads, so the cost argument never applied to it.
+The real trade-off is behavioural (noisy on the 1st, smoothed by the 30th) and accepted.
+
+Two details worth keeping:
+
+- The **existing "or how long they have actually been tracking, whichever is shorter" guard
+  stays**, now bounded by days elapsed rather than ten. Dividing someone who installed on
+  the 25th by 25 would report an average over 20 days they were not tracking.
+- A new `monthToDateExpenseMinor` is separate from `totals.expense`, because a transaction
+  the user dated **later this month** belongs in the month's total but must not be divided
+  by days that have not happened.
+
+That second point also fixed a pre-existing inconsistency: `expenseChangePercent` compared
+the *whole* month against the same elapsed days of last month, so a future-dated entry
+reported a rise the user had not made. Both sides are now to-date, which is what the KDoc
+always claimed. Tested.
+
+### Import and export no longer fail silently
+
+Two paths reported **nothing at all**:
+
+- A failed write fired `ExportDestinationChosen(null)` → `message = null` → no snackbar.
+  The spinner stopped and the user believed they had a backup they did not have.
+- A failed read dispatched **no event whatsoever**.
+
+Replaced by explicit `ExportSucceeded` / `ExportFailed` / `FileReadFailed`, with the
+reason carried through from the IO rather than collapsed into a boolean. `ExportDismissed`
+stays silent, because cancelling is not a failure.
+
+The old check was also wrong: `openOutputStream(...)?.use { … } != null` tests the value of
+`use`, which is `flush()` → `Unit`. `Unit` is never null, so it only ever meant "the stream
+opened and nothing threw". And `pendingImport` is now `rememberSaveable` — as a plain
+`remember` it was lost on process death and the picked file silently discarded.
+
+### A merge import that finds nothing new now says so
+
+Reported: export a backup, re-import with **Add**, and the dialog shows
+`0 transactions, 0 categories, 0 payment methods, 0 budgets` with a greyed-out button.
+
+The behaviour was correct — merge skips what you already have, so re-importing your own
+backup is deliberately a no-op. The presentation was wrong three ways, all now fixed:
+
+1. **Only transactions had a duplicate count.** Categories, payment methods and budgets
+   were also recognised and skipped, but the dialog said "0" and never mentioned them. All
+   four are counted now.
+2. **Four zeros read as failure.** `isAlreadyUpToDate` swaps them for a sentence naming what
+   was recognised, titled "Already up to date".
+3. **The disabled button never said why.** It is now a **Close** button rather than a dead
+   **Add**.
+
+---
+
 ## All phases complete
 
 | | |
 |---|---|
 | Phases delivered | 0–11, with the former Phase 9 (currencies) cut |
-| Unit tests | **341**, all green, pure JVM |
-| Lint | **0 errors**, 19 warnings (14 of them dependency upgrades awaiting a decision) |
+| Unit tests | **353**, all green, pure JVM |
+| Lint | **0 errors**, 20 warnings (14 of them dependency upgrades awaiting a decision) |
 | Screens | No placeholders left — every route is a real screen |
 
 **Open, and deliberately so:**

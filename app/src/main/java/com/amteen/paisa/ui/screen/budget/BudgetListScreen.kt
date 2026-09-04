@@ -14,11 +14,15 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Archive
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
@@ -52,6 +56,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -59,6 +65,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import com.amteen.paisa.R
 import com.amteen.paisa.core.money.Money
 import com.amteen.paisa.core.money.MoneyFormatter
@@ -69,11 +76,16 @@ import com.amteen.paisa.domain.model.BudgetStatus
 import com.amteen.paisa.domain.model.Category
 import com.amteen.paisa.domain.model.CategoryScope
 import com.amteen.paisa.domain.model.Currency
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import com.amteen.paisa.domain.usecase.BudgetSummary
 import com.amteen.paisa.ui.charts.ShareBar
 import com.amteen.paisa.ui.components.ConfirmDialog
 import com.amteen.paisa.ui.components.EmptyState
 import com.amteen.paisa.ui.components.LoadingState
+import com.amteen.paisa.ui.components.dragHandle
+import com.amteen.paisa.ui.components.rememberDragDropState
 import com.amteen.paisa.ui.theme.AmountTextStyles
 import com.amteen.paisa.ui.theme.PaisaTheme
 import com.amteen.paisa.ui.theme.expenseColors
@@ -86,6 +98,9 @@ import kotlin.math.roundToInt
  * Renders [BudgetListUiState] and nothing else — every figure comes from
  * `GetBudgetStatusUseCase`, the same one the dashboard strip uses.
  */
+/** Only rows carrying this prefix are draggable; totals and the alerts card are not. */
+private const val BUDGET_KEY_PREFIX = "budget-"
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BudgetListScreen(
@@ -261,7 +276,25 @@ private fun BudgetList(
     onEditBudget: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val listState = rememberLazyListState()
+    val dragDropState = rememberDragDropState(
+        listState = listState,
+        // Totals, the alerts card and the archived section must stay put.
+        isDraggable = { key -> key is String && key.startsWith(BUDGET_KEY_PREFIX) },
+        onMove = { from, to ->
+            onEvent(
+                BudgetListEvent.Moved(
+                    fromId = (from as String).removePrefix(BUDGET_KEY_PREFIX),
+                    toId = (to as String).removePrefix(BUDGET_KEY_PREFIX),
+                ),
+            )
+        },
+        // One write when the finger lifts, not one per swap.
+        onSettle = { onEvent(BudgetListEvent.ReorderCommitted) },
+    )
+
     LazyColumn(
+        state = listState,
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -276,13 +309,48 @@ private fun BudgetList(
             }
         }
 
-        items(state.summaries, key = { "budget-${it.id}" }) { summary ->
+        itemsIndexed(
+            items = state.summaries,
+            key = { _, summary -> "$BUDGET_KEY_PREFIX${summary.id}" },
+        ) { index, summary ->
+            val key = "$BUDGET_KEY_PREFIX${summary.id}"
+            val dragging = dragDropState.draggingItemKey == key
+
             BudgetCard(
                 summary = summary,
                 onEdit = { onEditBudget(summary.id) },
                 onArchive = { onEvent(BudgetListEvent.ArchiveToggled(summary.id, true)) },
                 onDelete = { onEvent(BudgetListEvent.RemoveRequested(summary.id)) },
+                onMoveUp = if (index > 0) {
+                    { onEvent(BudgetListEvent.MoveStep(summary.id, up = true)) }
+                } else {
+                    null
+                },
+                onMoveDown = if (index < state.summaries.lastIndex) {
+                    { onEvent(BudgetListEvent.MoveStep(summary.id, up = false)) }
+                } else {
+                    null
+                },
+                modifier = Modifier
+                    .zIndex(if (dragging) 1f else 0f)
+                    .graphicsLayer {
+                        if (dragging) {
+                            translationY = dragDropState.draggingItemOffset
+                            shadowElevation = 8.dp.toPx()
+                        }
+                    }
+                    .dragHandle(dragDropState, key),
             )
+        }
+
+        if (state.summaries.size > 1) {
+            item(key = "reorder-hint") {
+                Text(
+                    text = stringResource(R.string.budget_reorder_hint),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
 
         item(key = "alerts") {
@@ -373,6 +441,8 @@ private fun BudgetCard(
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
     archived: Boolean = false,
+    onMoveUp: (() -> Unit)? = null,
+    onMoveDown: (() -> Unit)? = null,
 ) {
     val progress = summary.progress
     val colors = MaterialTheme.expenseColors
@@ -406,7 +476,23 @@ private fun BudgetCard(
         )
     }
 
-    Card(modifier = modifier.fillMaxWidth(), colors = cardColors()) {
+    // A long-press drag cannot be performed with TalkBack running, so the same two
+    // moves are published as semantics actions. See DragDropList's KDoc.
+    val moveUpLabel = stringResource(R.string.action_move_up)
+    val moveDownLabel = stringResource(R.string.action_move_down)
+    val moveActions = remember(onMoveUp, onMoveDown, moveUpLabel, moveDownLabel) {
+        buildList {
+            onMoveUp?.let { add(CustomAccessibilityAction(moveUpLabel) { it(); true }) }
+            onMoveDown?.let { add(CustomAccessibilityAction(moveDownLabel) { it(); true }) }
+        }
+    }
+
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .semantics { customActions = moveActions },
+        colors = cardColors(),
+    ) {
         Column(
             modifier = Modifier.padding(start = 16.dp, end = 4.dp, top = 12.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -449,6 +535,8 @@ private fun BudgetCard(
                     onEdit = onEdit,
                     onArchive = onArchive,
                     onDelete = onDelete,
+                    onMoveUp = onMoveUp,
+                    onMoveDown = onMoveDown,
                 )
             }
 
@@ -496,6 +584,8 @@ private fun BudgetMenu(
     onEdit: () -> Unit,
     onArchive: () -> Unit,
     onDelete: () -> Unit,
+    onMoveUp: (() -> Unit)? = null,
+    onMoveDown: (() -> Unit)? = null,
 ) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -510,6 +600,29 @@ private fun BudgetMenu(
     }
 
     DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        // The explicit route to reordering. A drag is a gesture, and a gesture can
+        // never be the only way to do something.
+        onMoveUp?.let { move ->
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.action_move_up)) },
+                leadingIcon = { Icon(Icons.Filled.ArrowUpward, contentDescription = null) },
+                onClick = {
+                    expanded = false
+                    move()
+                },
+            )
+        }
+        onMoveDown?.let { move ->
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.action_move_down)) },
+                leadingIcon = { Icon(Icons.Filled.ArrowDownward, contentDescription = null) },
+                onClick = {
+                    expanded = false
+                    move()
+                },
+            )
+        }
+
         DropdownMenuItem(
             text = { Text(stringResource(R.string.action_edit)) },
             leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null) },

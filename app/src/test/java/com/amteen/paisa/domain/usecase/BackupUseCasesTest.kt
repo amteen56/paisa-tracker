@@ -271,6 +271,59 @@ class BackupUseCasesTest {
     }
 
     @Test
+    fun `re-importing your own backup counts duplicates for all four types`() = runTest {
+        // Exactly the reported case: export, then Add from backup. Every record in
+        // the file is already here, so the merge has nothing to do — and that must
+        // read as a match, not as four zeros and a dead button.
+        transactions.save(transaction("t1"))
+        transactions.save(transaction("t2"))
+        val own = exportBackup().value()
+
+        val preview = prepare.fromJson(own, ImportMode.MERGE).value()
+
+        assertEquals(0, preview.incomingTransactions)
+        assertEquals(0, preview.incomingCategories)
+        assertEquals(0, preview.incomingPaymentMethods)
+        assertEquals(0, preview.incomingBudgets)
+
+        // Before the fix only transactions were counted, so the categories, methods
+        // and budgets the file held were silently invisible.
+        assertEquals(2, preview.duplicateTransactions)
+        assertEquals(2, preview.duplicateCategories)
+        assertEquals(1, preview.duplicatePaymentMethods)
+        assertEquals(1, preview.duplicateBudgets)
+        assertEquals(6, preview.totalDuplicates)
+
+        assertFalse(preview.hasAnythingToDo)
+        assertTrue(preview.isAlreadyUpToDate)
+    }
+
+    @Test
+    fun `a merge with something new is not reported as already up to date`() = runTest {
+        transactions.save(transaction("mine"))
+        val incoming = incomingDocument(listOf(transaction("mine"), transaction("fresh")))
+
+        val preview = prepare.fromJson(incoming, ImportMode.MERGE).value()
+
+        assertEquals(1, preview.incomingTransactions)
+        assertEquals(1, preview.duplicateTransactions)
+        assertTrue(preview.hasAnythingToDo)
+        assertFalse(preview.isAlreadyUpToDate)
+    }
+
+    @Test
+    fun `a replace never reports duplicates, because it takes everything`() = runTest {
+        transactions.save(transaction("t1"))
+        val own = exportBackup().value()
+
+        val preview = prepare.fromJson(own, ImportMode.REPLACE).value()
+
+        assertEquals(0, preview.totalDuplicates)
+        assertFalse(preview.isAlreadyUpToDate)
+        assertTrue(preview.hasAnythingToDo)
+    }
+
+    @Test
     fun `a merge never overwrites a record the user already has`() = runTest {
         transactions.save(transaction("shared", description = "mine"))
         val incoming = incomingDocument(listOf(transaction("shared", description = "theirs")))
