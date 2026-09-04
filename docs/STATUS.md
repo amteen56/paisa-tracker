@@ -19,8 +19,8 @@
 | **7** | Calendar | ✅ **Done — 225 tests green** |
 | **8** | Reports & charts | ✅ **Done — 249 tests green** |
 | ~~9~~ | ~~Currencies & manual exchange rates~~ | ❌ **Cut — app is PKR-only** |
-| 9 | Import/Export (JSON + CSV) | ⬜ **Next** |
-| 10 | Polish | ⬜ |
+| **9** | Import/Export (JSON + CSV) | ✅ **Done — 290 tests green** |
+| 10 | Polish | ⬜ **Next** |
 | 11 | Unit tests & sample data | ⬜ |
 
 Full phase detail: [PROJECT_PLAN.md](PROJECT_PLAN.md).
@@ -49,6 +49,7 @@ One commit per phase, pushed to `origin/main` as soon as it is made.
 | `3721335` | Phase 7: calendar, and the cut to PKR only |
 | `52de1ad` | Fix the app to PKR: remove every currency option |
 | `463b06c` | Phase 8: reports and charts |
+| _pending_ | Phase 9: import and export |
 
 Verify the identity before committing — this repo must **not** be authored by the global work
 account:
@@ -637,6 +638,114 @@ the user never asked for.
 
 ---
 
+## What was built in Phase 9
+
+Import and export — the first phase whose failure mode is losing the user's data
+rather than showing them a wrong number.
+
+- `data/csv/Csv.kt` — RFC 4180, written by hand
+- `data/dto/Dtos.kt` — `BackupFile`, the whole-app document
+- `domain/model/AppSnapshot.kt` — the same thing as domain objects, plus `CsvRow`
+- `domain/model/ImportPlaceholders.kt` — the records an import invents so nothing
+  goes missing
+- `domain/repository/BackupRepository` + `data/repository/FileBackupRepositoryImpl` —
+  the codec and the rolling snapshots
+- `domain/usecase/BackupUseCases.kt` — export JSON, export CSV, prepare (validate and
+  preview), commit, and the local snapshot
+- `ui/screen/backup/` — the screen, SAF wiring and the preview dialog
+- `JsonFileStore.writeRaw` / `readRaw` — atomic writes for already-serialised text
+
+**290 unit tests, all green** (41 new).
+
+### Validate → preview → confirm → commit, and why the split is real
+
+`PrepareImportUseCase` **writes nothing**. It parses, assembles the complete candidate
+state, repairs anything that would not resolve, and hands back an `ImportPreview`
+carrying both the counts to show and the finished candidate. `CommitImportUseCase`
+then writes that candidate unchanged.
+
+That means a commit cannot discover a problem halfway through and leave the app
+holding a mixture of two datasets — CLAUDE.md rule 8. There is a test asserting that
+validation leaves the store untouched, because "the preview step is side-effect free"
+is exactly the kind of property that quietly stops being true.
+
+A Replace snapshots to `backup/` first and **aborts if the snapshot fails**. Replacing
+everything with no way back is worse than not importing at all.
+
+### Duplicate handling, in both directions
+
+**A JSON backup re-imported is a no-op.** Ids match, so every record counts as a
+duplicate and is skipped. There is a test that imports the same file twice and asserts
+the second pass changes nothing — a silent doubling is the worst kind of import bug,
+because it corrupts every total the user looks at afterwards.
+
+**A merge never overwrites.** An id collision means the user already has that record,
+so the incoming copy loses. "Add what is new" must not be quietly destructive.
+
+**A hand-made CSV has no ids**, so one is derived from the row's own date, amount and
+description. Importing that file twice is also a no-op, which is the behaviour someone
+who exported, edited and re-imported actually expects.
+
+### What the two formats are for
+
+JSON round-trips exactly and is the real backup — there is a test asserting the
+subcategory, notes, time and date all survive.
+
+CSV is for spreadsheets and carries transactions only, with ids resolved to **names**
+because a person is going to read it. That makes it the lossy direction, and the
+importer compensates: names are matched case-insensitively, and a category or payment
+method the file mentions but the app lacks is **created** rather than dropped.
+Dropping it would move the money to "Uncategorised" and quietly change every report.
+
+Amounts are written as minor units, as an integer. A spreadsheet that helpfully
+reformats `350.50` is precisely the drift the `Long` model exists to prevent, and
+there is a test asserting the string `350.50` never appears in an export.
+
+### The CSV parser is a character scan, not a line split
+
+Splitting on newlines before handling quotes is the classic way to corrupt any note
+the user pressed return inside. So the parser walks characters, tracks whether it is
+inside quotes, treats a doubled `""` as one literal quote, accepts LF / CRLF / CR, and
+skips a UTF-8 BOM — because files round-tripped through Excel on Windows arrive with
+one, and without that the first column name never matches.
+
+Sixteen tests cover it, including a round trip of every awkward value: embedded
+commas, quotes, newlines, CRLF, padding and unbalanced quotes.
+
+### No storage permission, at all
+
+Everything goes through the Storage Access Framework. The user picks the file and the
+system hands back a URI scoped to that one document, so the manifest asks for nothing.
+The export document is built **before** the picker opens and held in state, because
+building it twice would be wasted work and could stamp two different export times onto
+one file.
+
+### Layering, corrected mid-phase
+
+The first cut had the use cases importing `JsonFileStore`, `BackupFile` and
+`DefaultData` directly — a domain-to-data dependency CLAUDE.md forbids. That is now
+fixed: `BackupRepository` is a domain interface speaking `AppSnapshot` and `CsvRow`,
+`FileBackupRepositoryImpl` owns everything DTO-, JSON- and RFC-4180-shaped, and the
+placeholder factories moved into `domain/model/ImportPlaceholders.kt` because
+"never drop a record whose category is absent — invent the category" is a domain
+policy, not seed data. The repository also exposes `schemaVersion`, so the importer
+can refuse a newer file without knowing where the number comes from.
+
+`grep -r "import com.amteen.paisa.data" domain/` returns nothing again.
+
+### Two smaller decisions
+
+**A newer backup is refused, not partially read.** It reuses the existing
+`AppError.SchemaTooNew`, whose message already names both versions. Guessing could
+silently drop fields this build cannot represent, and during a Replace that is
+unrecoverable.
+
+**A CSV-driven Replace leaves budgets and settings alone.** A CSV carries neither, so
+treating "replace everything" literally would wipe data the file never claimed to
+cover. Tested.
+
+---
+
 ## Fixing the app to PKR
 
 Phase 7 removed the calendar's own currency surface. This finished the job across
@@ -710,12 +819,12 @@ Rs. 10. That is test data from a cut feature; clearing app data resets it cleanl
 
 ---
 
-## Next: Phase 9 — import and export
+## Next: Phase 10 — polish
 
-- JSON backup and restore, CSV export and import
-- Validate → preview → confirm → commit, with duplicate handling
-- Rolling local backups
-- SAF, so no storage permission is needed
+- Empty, error and loading states audited on every screen
+- Transitions, TalkBack pass, touch targets, dark-mode audit
+- Sample-data seeder
+- Removing the last unused currency strings and the dead `mixedCurrency` fields
 
 The architectural rules every phase is held to are in [../CLAUDE.md](../CLAUDE.md) — money is never
 a `Double`, writes are always atomic, reads recover rather than crash, and a composable renders

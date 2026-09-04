@@ -192,6 +192,37 @@ class JsonFileStore(
         }
     }
 
+    /**
+     * Writes an already-serialised document atomically.
+     *
+     * Same tmp / fsync / rename ladder as [writeFile] — every write in this app goes
+     * through the store, CLAUDE.md rule 1 — but without the DTO round trip, because a
+     * snapshot destined for a backup file or a user-chosen location is already text.
+     *
+     * No `.bak` sidecar: these files *are* the backups, and keeping a shadow copy of
+     * every snapshot would double what the rolling prune is there to bound.
+     */
+    suspend fun writeRaw(relativePath: String, content: String): Unit = withContext(ioDispatcher) {
+        lockFor(relativePath).withLock {
+            val target = resolve(relativePath)
+            target.parentFile?.mkdirs()
+
+            val tmp = File(target.parentFile, "${target.name}$SUFFIX_TMP")
+            FileOutputStream(tmp).use { out ->
+                out.write(content.toByteArray(Charsets.UTF_8))
+                out.flush()
+                out.fd.sync()
+            }
+            move(tmp, target, atomic = true)
+        }
+    }
+
+    /** Reads a raw document, or null when it is not there. */
+    suspend fun readRaw(relativePath: String): String? = withContext(ioDispatcher) {
+        val file = resolve(relativePath)
+        if (file.exists()) file.readText(Charsets.UTF_8) else null
+    }
+
     suspend fun delete(relativePath: String): Boolean = withContext(ioDispatcher) {
         lockFor(relativePath).withLock {
             val target = resolve(relativePath)

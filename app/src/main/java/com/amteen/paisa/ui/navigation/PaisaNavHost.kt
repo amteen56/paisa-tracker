@@ -34,6 +34,8 @@ import com.amteen.paisa.di.ViewModelFactories
 import com.amteen.paisa.domain.model.CategoryScope
 import com.amteen.paisa.domain.model.TransactionType
 import com.amteen.paisa.ui.components.PlaceholderScreen
+import com.amteen.paisa.ui.screen.backup.BackupScreen
+import com.amteen.paisa.ui.screen.backup.BackupViewModel
 import com.amteen.paisa.ui.screen.budget.BudgetEditScreen
 import com.amteen.paisa.ui.screen.budget.BudgetEditViewModel
 import com.amteen.paisa.ui.screen.budget.BudgetListScreen
@@ -393,9 +395,15 @@ fun PaisaNavHost(
 
             // --- Data ------------------------------------------------------
             composable(Routes.BACKUP) {
-                PlaceholderScreen(
-                    title = stringResource(R.string.title_backup),
-                    phaseNote = "JSON backup/restore and CSV export/import arrive in Phase 10.",
+                val container = LocalAppContainer.current
+                val viewModel: BackupViewModel = viewModel(
+                    factory = ViewModelFactories.backup(container),
+                )
+                val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+                BackupScreen(
+                    state = state,
+                    onEvent = viewModel::onEvent,
                     onBack = navController::popBackStack,
                 )
             }

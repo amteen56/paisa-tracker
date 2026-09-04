@@ -232,6 +232,38 @@
     <string name="reports_range_start">Start date</string>
     <string name="reports_range_end">End date</string>
 
+    <!-- Import and export -->
+    <string name="backup_export_title">Export</string>
+    <string name="backup_export_body">A JSON backup restores everything exactly. CSV is for spreadsheets and only carries transactions.</string>
+    <string name="backup_export_json">Backup (JSON)</string>
+    <string name="backup_export_csv">CSV</string>
+    <string name="backup_import_title">Import</string>
+    <string name="backup_import_body">You will see exactly what would change before anything is written.</string>
+    <string name="backup_import_merge">Add from backup</string>
+    <string name="backup_import_csv">Add from CSV</string>
+    <string name="backup_import_replace">Replace everything from a backup…</string>
+    <string name="backup_replace_note">Replace wipes your current data first. Paisa saves a local snapshot before it does.</string>
+    <string name="backup_local_title">Local snapshots</string>
+    <string name="backup_local_body">Kept on this device only, newest first. Older ones are pruned automatically.</string>
+    <string name="backup_snapshot_now">Save a snapshot now</string>
+    <string name="backup_local_empty">No snapshots yet.</string>
+    <string name="backup_privacy_note">Files go where you choose them to. Nothing is uploaded, and Paisa asks for no storage permission — the system hands it one file at a time.</string>
+    <string name="backup_busy_exporting">Building the file…</string>
+    <string name="backup_busy_reading">Checking the file…</string>
+    <string name="backup_busy_importing">Importing…</string>
+    <string name="backup_busy_snapshotting">Saving a snapshot…</string>
+    <string name="backup_preview_merge_title">Add this data?</string>
+    <string name="backup_preview_replace_title">Replace everything?</string>
+    <string name="backup_preview_taken">Backup taken %1$s</string>
+    <string name="backup_preview_counts">%1$d transactions, %2$d categories, %3$d payment methods, %4$d budgets.</string>
+    <string name="backup_preview_duplicates">%1$d already on this device and will be skipped.</string>
+    <string name="backup_preview_repaired">%1$d missing category/categories will be recreated so nothing is orphaned.</string>
+    <string name="backup_preview_more_problems">…and %1$d more problem(s).</string>
+    <string name="backup_preview_will_delete">This deletes %1$d transaction(s) already on this device.</string>
+    <string name="backup_preview_snapshot_first">A local snapshot is saved first, so this can be undone.</string>
+    <string name="backup_preview_merge_confirm">Add</string>
+    <string name="backup_preview_replace_confirm">Replace</string>
+
     <!-- Budget notifications -->
     <string name="notification_channel_budgets">Budget alerts</string>
     <string name="notification_channel_budgets_desc">Tells you when a budget reaches 75%%, 90%% or 100%%. Generated on this device from your own data.</string>

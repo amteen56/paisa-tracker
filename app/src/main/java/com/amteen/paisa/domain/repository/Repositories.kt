@@ -2,6 +2,8 @@ package com.amteen.paisa.domain.repository
 
 import com.amteen.paisa.core.time.DateRange
 import com.amteen.paisa.domain.model.AppSettings
+import com.amteen.paisa.domain.model.AppSnapshot
+import com.amteen.paisa.domain.model.CsvRow
 import com.amteen.paisa.domain.model.Budget
 import com.amteen.paisa.domain.model.BudgetAlert
 import com.amteen.paisa.domain.model.Category
@@ -175,4 +177,55 @@ interface SettingsRepository {
     suspend fun load()
 
     suspend fun update(transform: (AppSettings) -> AppSettings)
+}
+
+/**
+ * Reading and writing whole-app documents, and the rolling local backups.
+ *
+ * The one repository that is about *files as documents* rather than about a
+ * collection of records. It exists so the import and export use cases can stay free
+ * of DTOs, `kotlinx.serialization` and RFC 4180 — the interesting, testable half of
+ * import is validation, and that belongs in a use case.
+ *
+ * Every method may throw; the use cases turn failures into [
+ * com.amteen.paisa.core.result.AppError] rather than letting them reach the UI.
+ */
+interface BackupRepository {
+
+    /**
+     * The document format this build writes and can read.
+     *
+     * Exposed here so the import use case can refuse a newer file without importing
+     * `JsonFileStore` — the domain is not allowed to know about the data layer.
+     */
+    val schemaVersion: Int
+
+    /** Serialises a snapshot to a JSON document. */
+    suspend fun encodeJson(snapshot: AppSnapshot): String
+
+    /**
+     * Parses a JSON document.
+     *
+     * @throws IllegalArgumentException if it is not a Paisa backup at all.
+     */
+    suspend fun decodeJson(text: String): AppSnapshot
+
+    /** Transactions as CSV, with references already resolved to names. */
+    suspend fun encodeCsv(header: List<String>, rows: List<List<String>>): String
+
+    /** Splits a CSV document into rows keyed by its own header. */
+    suspend fun decodeCsv(text: String): List<CsvRow>
+
+    /**
+     * Writes a rolling snapshot under `backup/`, pruning to [keep] files.
+     *
+     * @return the file name written.
+     */
+    suspend fun writeLocalBackup(content: String, reason: String, keep: Int): String
+
+    /** Local snapshot file names, newest first. */
+    suspend fun listLocalBackups(): List<String>
+
+    /** Reads one local snapshot back, or null if it is gone. */
+    suspend fun readLocalBackup(name: String): String?
 }

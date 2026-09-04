@@ -5,6 +5,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.amteen.paisa.domain.model.CategoryScope
 import com.amteen.paisa.domain.model.TransactionType
+import com.amteen.paisa.ui.screen.backup.BackupViewModel
 import com.amteen.paisa.ui.screen.budget.BudgetEditViewModel
 import com.amteen.paisa.ui.screen.budget.BudgetListViewModel
 import com.amteen.paisa.ui.screen.calendar.CalendarViewModel
@@ -148,6 +149,19 @@ object ViewModelFactories {
                 paymentMethodRepository = container.paymentMethodRepository,
                 currencyRepository = container.currencyRepository,
                 settingsRepository = container.settingsRepository,
+            )
+        }
+    }
+
+    fun backup(container: AppContainer): ViewModelProvider.Factory = viewModelFactory {
+        initializer {
+            BackupViewModel(
+                exportBackup = container.exportBackup,
+                exportCsv = container.exportCsv,
+                prepareImport = container.prepareImport,
+                commitImport = container.commitImport,
+                writeLocalBackup = container.writeLocalBackup,
+                backups = container.backupRepository,
             )
         }
     }

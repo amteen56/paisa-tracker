@@ -3,6 +3,7 @@ package com.amteen.paisa.di
 import android.content.Context
 import com.amteen.paisa.data.file.FilePaths
 import com.amteen.paisa.data.file.JsonFileStore
+import com.amteen.paisa.data.repository.FileBackupRepositoryImpl
 import com.amteen.paisa.data.repository.FileBudgetAlertStateRepositoryImpl
 import com.amteen.paisa.data.repository.FileBudgetRepositoryImpl
 import com.amteen.paisa.data.repository.FileCategoryRepositoryImpl
@@ -11,6 +12,7 @@ import com.amteen.paisa.data.repository.FilePaymentMethodRepositoryImpl
 import com.amteen.paisa.data.repository.FileSettingsRepositoryImpl
 import com.amteen.paisa.data.repository.FileTransactionRepositoryImpl
 import com.amteen.paisa.data.seed.DefaultData
+import com.amteen.paisa.domain.repository.BackupRepository
 import com.amteen.paisa.domain.repository.BudgetAlertStateRepository
 import com.amteen.paisa.domain.repository.BudgetRepository
 import com.amteen.paisa.domain.repository.CategoryRepository
@@ -31,6 +33,11 @@ import com.amteen.paisa.domain.usecase.GetBudgetHistoryUseCase
 import com.amteen.paisa.domain.usecase.GetBudgetStatusUseCase
 import com.amteen.paisa.domain.usecase.GetDashboardSummaryUseCase
 import com.amteen.paisa.domain.usecase.BuildReportUseCase
+import com.amteen.paisa.domain.usecase.CommitImportUseCase
+import com.amteen.paisa.domain.usecase.ExportBackupUseCase
+import com.amteen.paisa.domain.usecase.ExportCsvUseCase
+import com.amteen.paisa.domain.usecase.PrepareImportUseCase
+import com.amteen.paisa.domain.usecase.WriteLocalBackupUseCase
 import com.amteen.paisa.domain.usecase.GetMonthCalendarUseCase
 import com.amteen.paisa.domain.usecase.SaveBudgetUseCase
 import com.amteen.paisa.notification.BudgetAlertNotifier
@@ -84,6 +91,12 @@ class AppContainer(context: Context) {
     val budgetAlertStateRepository: BudgetAlertStateRepository =
         FileBudgetAlertStateRepositoryImpl(fileStore)
     val transactionRepository: TransactionRepository = FileTransactionRepositoryImpl(fileStore)
+
+    /**
+     * Whole-app documents and the rolling snapshots. The one repository that is about
+     * files-as-documents rather than a collection of records.
+     */
+    val backupRepository: BackupRepository = FileBackupRepositoryImpl(fileStore)
 
     // -- Use cases ----------------------------------------------------------
 
@@ -209,6 +222,49 @@ class AppContainer(context: Context) {
         categories = categoryRepository,
         paymentMethods = paymentMethodRepository,
         currencies = currencyRepository,
+        settings = settingsRepository,
+    )
+
+    // Import and export. Validation is a use case rather than a screen concern
+    // because "what would this file do" is the half worth testing off-device.
+    val exportBackup = ExportBackupUseCase(
+        transactions = transactionRepository,
+        categories = categoryRepository,
+        paymentMethods = paymentMethodRepository,
+        budgets = budgetRepository,
+        settings = settingsRepository,
+        backups = backupRepository,
+    )
+
+    val exportCsv = ExportCsvUseCase(
+        transactions = transactionRepository,
+        categories = categoryRepository,
+        paymentMethods = paymentMethodRepository,
+        backups = backupRepository,
+    )
+
+    val prepareImport = PrepareImportUseCase(
+        transactions = transactionRepository,
+        categories = categoryRepository,
+        paymentMethods = paymentMethodRepository,
+        budgets = budgetRepository,
+        settings = settingsRepository,
+        backups = backupRepository,
+    )
+
+    val commitImport = CommitImportUseCase(
+        transactions = transactionRepository,
+        categories = categoryRepository,
+        paymentMethods = paymentMethodRepository,
+        budgets = budgetRepository,
+        settings = settingsRepository,
+        backups = backupRepository,
+        exportBackup = exportBackup,
+    )
+
+    val writeLocalBackup = WriteLocalBackupUseCase(
+        exportBackup = exportBackup,
+        backups = backupRepository,
         settings = settingsRepository,
     )
 

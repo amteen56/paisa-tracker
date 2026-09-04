@@ -171,3 +171,25 @@ data class BudgetAlertsFile(
     @SerialName(JsonFileStore.KEY_SCHEMA_VERSION) val schemaVersion: Int = V,
     val fired: List<BudgetAlertDto> = emptyList(),
 )
+
+/**
+ * A whole-app snapshot: every file the user owns, in one document.
+ *
+ * Kept as one root object with its own [schemaVersion] so a backup taken by an older
+ * build can be recognised and migrated rather than half-read. `currencies` survives
+ * for schema stability — the app is PKR-only, and import ignores it.
+ */
+@Serializable
+data class BackupFile(
+    @SerialName(JsonFileStore.KEY_SCHEMA_VERSION) val schemaVersion: Int = V,
+    /** ISO instant, so a restore dialog can say how old the file is. */
+    val exportedAt: String = "",
+    /** Free text, e.g. "Paisa 1.0" — diagnostic only, never parsed for behaviour. */
+    val app: String = "",
+    val settings: SettingsDto = SettingsDto(),
+    val categories: List<CategoryDto> = emptyList(),
+    val paymentMethods: List<PaymentMethodDto> = emptyList(),
+    val budgets: List<BudgetDto> = emptyList(),
+    val currencies: List<CurrencyDto> = emptyList(),
+    val transactions: List<TransactionDto> = emptyList(),
+)
