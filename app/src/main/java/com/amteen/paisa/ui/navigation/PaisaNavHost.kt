@@ -51,6 +51,8 @@ import com.amteen.paisa.ui.screen.home.HomeViewModel
 import com.amteen.paisa.ui.screen.more.MoreScreen
 import com.amteen.paisa.ui.screen.paymentmethod.PaymentMethodScreen
 import com.amteen.paisa.ui.screen.paymentmethod.PaymentMethodViewModel
+import com.amteen.paisa.ui.screen.reports.ReportsScreen
+import com.amteen.paisa.ui.screen.reports.ReportsViewModel
 import com.amteen.paisa.ui.screen.transaction.AddEditTransactionScreen
 import com.amteen.paisa.ui.screen.transaction.AddEditTransactionViewModel
 import com.amteen.paisa.ui.screen.transaction.TransactionDetailScreen
@@ -153,9 +155,16 @@ fun PaisaNavHost(
                 )
             }
             composable(Routes.REPORTS) {
-                PlaceholderScreen(
-                    title = stringResource(R.string.title_reports),
-                    phaseNote = "Charts and reports arrive in Phase 8.",
+                val container = LocalAppContainer.current
+                val viewModel: ReportsViewModel = viewModel(
+                    factory = ViewModelFactories.reports(container),
+                )
+                val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+                ReportsScreen(
+                    state = state,
+                    onEvent = viewModel::onEvent,
+                    onTransactionClick = { navController.navigate(Routes.transactionDetail(it)) },
                 )
             }
             composable(Routes.MORE) {

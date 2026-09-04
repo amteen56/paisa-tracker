@@ -13,6 +13,7 @@ import com.amteen.paisa.ui.screen.category.CategoryListViewModel
 import com.amteen.paisa.ui.screen.history.TransactionHistoryViewModel
 import com.amteen.paisa.ui.screen.home.HomeViewModel
 import com.amteen.paisa.ui.screen.paymentmethod.PaymentMethodViewModel
+import com.amteen.paisa.ui.screen.reports.ReportsViewModel
 import com.amteen.paisa.ui.screen.transaction.AddEditTransactionViewModel
 import com.amteen.paisa.ui.screen.transaction.TransactionDetailViewModel
 import java.time.LocalDate
@@ -143,6 +144,18 @@ object ViewModelFactories {
         initializer {
             CalendarViewModel(
                 getMonthCalendar = container.getMonthCalendar,
+                categoryRepository = container.categoryRepository,
+                paymentMethodRepository = container.paymentMethodRepository,
+                currencyRepository = container.currencyRepository,
+                settingsRepository = container.settingsRepository,
+            )
+        }
+    }
+
+    fun reports(container: AppContainer): ViewModelProvider.Factory = viewModelFactory {
+        initializer {
+            ReportsViewModel(
+                buildReport = container.buildReport,
                 categoryRepository = container.categoryRepository,
                 paymentMethodRepository = container.paymentMethodRepository,
                 currencyRepository = container.currencyRepository,

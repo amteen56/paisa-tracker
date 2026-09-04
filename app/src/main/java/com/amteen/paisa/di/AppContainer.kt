@@ -30,6 +30,7 @@ import com.amteen.paisa.domain.usecase.EvaluateBudgetAlertsUseCase
 import com.amteen.paisa.domain.usecase.GetBudgetHistoryUseCase
 import com.amteen.paisa.domain.usecase.GetBudgetStatusUseCase
 import com.amteen.paisa.domain.usecase.GetDashboardSummaryUseCase
+import com.amteen.paisa.domain.usecase.BuildReportUseCase
 import com.amteen.paisa.domain.usecase.GetMonthCalendarUseCase
 import com.amteen.paisa.domain.usecase.SaveBudgetUseCase
 import com.amteen.paisa.notification.BudgetAlertNotifier
@@ -194,6 +195,16 @@ class AppContainer(context: Context) {
     // the gaps, and income and expense kept apart per day — a different shape from
     // the flat day sections `observeTransactions` produces, so it derives its own.
     val getMonthCalendar = GetMonthCalendarUseCase(
+        transactions = transactionRepository,
+        categories = categoryRepository,
+        paymentMethods = paymentMethodRepository,
+        currencies = currencyRepository,
+        settings = settingsRepository,
+    )
+
+    // Reports read a bounded union of the period, six months of trend and the
+    // comparison window, rather than every shard ever written. See the use case.
+    val buildReport = BuildReportUseCase(
         transactions = transactionRepository,
         categories = categoryRepository,
         paymentMethods = paymentMethodRepository,

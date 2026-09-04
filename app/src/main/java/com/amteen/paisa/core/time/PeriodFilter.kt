@@ -24,6 +24,26 @@ sealed interface PeriodFilter {
     data class Month(val month: YearMonth) : PeriodFilter
     data class Custom(val range: DateRange) : PeriodFilter
 
+    /**
+     * What the chip and the report header call this period.
+     *
+     * Lives here rather than in a composable so history and reports cannot end up
+     * labelling the same period differently.
+     */
+    val label: String
+        get() = when (this) {
+            Today -> "Today"
+            Yesterday -> "Yesterday"
+            ThisWeek -> "This week"
+            ThisMonth -> "This month"
+            LastMonth -> "Last month"
+            ThisYear -> "This year"
+            AllTime -> "All time"
+            is Month -> DateFormatters.month(month)
+            is Custom -> "${DateFormatters.compactDate(range.start)} – " +
+                DateFormatters.compactDate(range.endInclusive)
+        }
+
     /** `null` for [AllTime] — the caller loads every shard rather than a span. */
     fun resolve(today: LocalDate, firstDayOfWeek: DayOfWeek = DayOfWeek.MONDAY): DateRange? =
         when (this) {

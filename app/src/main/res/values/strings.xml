@@ -197,6 +197,41 @@
     <string name="calendar_empty_message">Record an expense and it appears on its day here, with the month\'s totals above.</string>
     <string name="calendar_error_title">Could not work out this month</string>
 
+    <!-- Reports -->
+    <string name="reports_period">Period</string>
+    <string name="reports_custom_range">Custom range…</string>
+    <string name="reports_overview">Overview</string>
+    <string name="reports_spent">Spent</string>
+    <string name="reports_income">Income</string>
+    <string name="reports_net">Net</string>
+    <string name="reports_per_day">Average per day</string>
+    <plurals name="reports_over_days">
+        <item quantity="one">Over 1 day</item>
+        <item quantity="other">Over %1$d days</item>
+    </plurals>
+    <plurals name="reports_entry_count">
+        <item quantity="one">%1$d entry</item>
+        <item quantity="other">%1$d entries</item>
+    </plurals>
+    <string name="reports_compare_up">%1$s more than the previous %2$s</string>
+    <string name="reports_compare_down">%1$s less than the previous %2$s</string>
+    <string name="reports_compare_same">The same as the previous %1$s</string>
+    <string name="reports_compare_none">Nothing to compare against</string>
+    <string name="reports_by_category">Where it went</string>
+    <string name="reports_drill_hint">Tap a category to break it down.</string>
+    <string name="reports_subcategories_of">Inside %1$s</string>
+    <string name="reports_close_drilldown">Close breakdown</string>
+    <string name="reports_daily">Day by day</string>
+    <string name="reports_daily_too_long">This period is too long for a daily chart — the monthly trend below covers it.</string>
+    <string name="reports_trend">Income vs spending</string>
+    <string name="reports_busiest">Busiest day</string>
+    <string name="reports_top_expenses">Biggest expenses</string>
+    <string name="reports_empty_title">Nothing in this period</string>
+    <string name="reports_empty_message">Pick a different period, or record an expense and the charts fill in.</string>
+    <string name="reports_error_title">Could not build this report</string>
+    <string name="reports_range_start">Start date</string>
+    <string name="reports_range_end">End date</string>
+
     <!-- Budget notifications -->
     <string name="notification_channel_budgets">Budget alerts</string>
     <string name="notification_channel_budgets_desc">Tells you when a budget reaches 75%%, 90%% or 100%%. Generated on this device from your own data.</string>

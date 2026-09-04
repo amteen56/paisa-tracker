@@ -17,9 +17,9 @@
 | **5** | Dashboard | ✅ **Done — 151 tests green, lint clean** |
 | **6** | Budgets + local alerts | ✅ **Done — 192 tests green, lint clean** |
 | **7** | Calendar | ✅ **Done — 225 tests green** |
-| 8 | Reports & charts | ⬜ **Next** |
+| **8** | Reports & charts | ✅ **Done — 249 tests green** |
 | ~~9~~ | ~~Currencies & manual exchange rates~~ | ❌ **Cut — app is PKR-only** |
-| 9 | Import/Export (JSON + CSV) | ⬜ |
+| 9 | Import/Export (JSON + CSV) | ⬜ **Next** |
 | 10 | Polish | ⬜ |
 | 11 | Unit tests & sample data | ⬜ |
 
@@ -48,6 +48,7 @@ One commit per phase, pushed to `origin/main` as soon as it is made.
 | `0325c02` | Phase 6: budgets and local alerts |
 | `3721335` | Phase 7: calendar, and the cut to PKR only |
 | `52de1ad` | Fix the app to PKR: remove every currency option |
+| `7bd3571` | Phase 8: reports and charts |
 
 Verify the identity before committing — this repo must **not** be authored by the global work
 account:
@@ -545,6 +546,97 @@ optional parameter with a default, so nothing else changed.
 
 ---
 
+## What was built in Phase 8
+
+Reports — the first screen that has to make a period of spending *comparable*
+rather than just add it up.
+
+- `domain/usecase/BuildReportUseCase.kt` — `Report`, `CategorySlice`,
+  `SubcategorySlice`, `DailyPoint`, `MonthlyPoint`; every figure and every series in
+  one pass over one read
+- `ui/charts/DonutChart.kt` — the category ring plus its legend
+- `ui/charts/PeriodCharts.kt` — `DailyExpenseBars`, `IncomeExpenseTrend`,
+  `LabelledShareRow`
+- `ui/screen/reports/` — period chips, custom range picker, overview, donut with
+  subcategory drill-down, daily bars, monthly trend, biggest expenses
+- `core/time/PeriodFilter.label` — one place that names a period
+
+**249 unit tests, all green** (24 new).
+
+### The read is bounded on purpose
+
+A report could justify loading every shard the user has ever written. Instead the
+read is the union of three spans: the period itself, six months of trend, and — only
+for periods of two months or less — the preceding window to compare against. "This
+month" is about seven files; "this year" is twelve. Only `AllTime` reads everything,
+because that is exactly what the user asked for.
+
+That widening is why the use case filters period membership itself rather than
+trusting the repository: records outside the period arrive on purpose, to feed the
+trend, and they must not leak into the totals. There is a test for each direction —
+August spending shows in the trend and stays out of September's total.
+
+### Two figures that are easy to get wrong
+
+**The daily average divides by the period, not by the days that had spending.**
+Rs. 9,000 across two days of a 30-day month is Rs. 300 a day, not Rs. 4,500. Dividing
+by the days that happened to have entries reports a number the user has never
+averaged. Same half-up `Long` division as the dashboard — no `Double` anywhere near
+a displayed figure.
+
+**The comparison is the preceding window of equal length, and it stays absent when it
+would lie.** No previous spending means no percentage, because a jump from zero is
+not "up 100%". A period longer than 62 days gets no comparison at all rather than a
+second year-long read for one number.
+
+### Why the daily chart disappears on long periods
+
+365 bars on a phone is one pixel each — a picture of nothing. Past 62 days
+`dailySeries` comes back empty and the screen says so, pointing at the monthly trend
+that does cover it. The trend runs the other way: a single-month report would give a
+one-point line, which is a dot and says nothing about direction, so a short period
+still gets six months of context.
+
+### Colour is never the only signal — three times over
+
+**The donut** pairs every arc with a legend row carrying the name, amount and
+percentage, so it reads in greyscale and with any form of colour blindness. The ring
+is one animation rather than one per slice: the arcs share a running start angle, and
+animating them independently tears the ring apart mid-transition. A non-zero slice
+never sweeps less than 1.5°, so a small real amount cannot render as absent.
+
+**The trend** separates income from expense by three things, not one: solid line with
+filled dots against dashed line with hollow rings, plus a named legend whose key
+repeats the actual dash pattern. Someone who cannot separate the two hues still has
+the pattern and the marker shape.
+
+**The daily bars** are one canvas for the whole row, not one per bar — unlike the
+dashboard's seven-day chart this can carry sixty, and sixty composables each with
+their own animation is a lot of machinery to draw sixty rectangles. Every chart has a
+spoken alternative, and each says what the *shape* is telling a sighted reader — the
+span, how many days had spending, and the peak — rather than reading sixty values.
+
+### The drill-down keeps its own arithmetic honest
+
+Tapping a category breaks it into subcategories whose shares are of **that category**,
+not of the period. Spending filed under a category with no subcategory chosen becomes
+a real named "Unspecified" bucket rather than being dropped, so the breakdown still
+adds up to the category total — there is a test for exactly that sum.
+
+Changing period clears the drill-down. A subcategory breakdown for a category that
+may not even appear in the new period is stale figures under a heading that still
+looks current.
+
+### One small thing about the range picker
+
+Material's date range picker hands back UTC-midnight millis, so the dates are read
+back in UTC. Reading them in the device zone shifts the boundary by a day for anyone
+west of Greenwich. Both ends are required before Save enables — a half-chosen range
+has no meaning, and defaulting the missing end to today would quietly report a period
+the user never asked for.
+
+---
+
 ## Fixing the app to PKR
 
 Phase 7 removed the calendar's own currency surface. This finished the job across
@@ -618,12 +710,12 @@ Rs. 10. That is test data from a cut feature; clearing app data resets it cleanl
 
 ---
 
-## Next: Phase 8 — reports and charts
+## Next: Phase 9 — import and export
 
-- Overview, category donut, daily bars, monthly income-vs-expense trend
-- Top categories, top expenses, subcategory drill-down
-- Period filters including a custom range
-- All charts hand-drawn on `Canvas`, animated, theme-aware, with text alternatives
+- JSON backup and restore, CSV export and import
+- Validate → preview → confirm → commit, with duplicate handling
+- Rolling local backups
+- SAF, so no storage permission is needed
 
 The architectural rules every phase is held to are in [../CLAUDE.md](../CLAUDE.md) — money is never
 a `Double`, writes are always atomic, reads recover rather than crash, and a composable renders
