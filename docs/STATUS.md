@@ -51,7 +51,7 @@ One commit per phase, pushed to `origin/main` as soon as it is made.
 | `463b06c` | Phase 8: reports and charts |
 | `97f24e5` | Phase 9: import and export |
 | `68a86d0` | Phase 10: polish |
-| _pending_ | Phase 11: tests, docs and the lint pass |
+| `a66db6b` | Phase 11: tests, docs and the lint pass |
 
 Verify the identity before committing — this repo must **not** be authored by the global work
 account:
