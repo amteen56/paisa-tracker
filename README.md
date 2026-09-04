@@ -43,33 +43,34 @@ The app functions identically in airplane mode.
 
 | # | Acceptance criterion | Status |
 |---|---|---|
-| 1 | Open the app without creating an account | 🚧 |
-| 2 | Add an expense in seconds | 🚧 |
-| 3 | Select a category and subcategory | 🚧 |
-| 4 | Add income | 🚧 |
-| 5 | View all transactions | 🚧 |
-| 6 | Edit transactions | 🚧 |
-| 7 | Delete transactions | 🚧 |
-| 8 | Search transactions | 🚧 |
-| 9 | Filter by date / category / type | 🚧 |
-| 10 | Calendar view of financial activity | 🚧 |
-| 11 | Create monthly budgets | 🚧 |
-| 12 | See budget usage | 🚧 |
-| 13 | Local budget alerts | 🚧 |
-| 14 | Advanced charts | 🚧 |
-| 15 | Daily / monthly / category reports | 🚧 |
+| 1 | Open the app without creating an account | ✅ |
+| 2 | Add an expense in seconds | ✅ |
+| 3 | Select a category and subcategory | ✅ |
+| 4 | Add income | ✅ |
+| 5 | View all transactions | ✅ |
+| 6 | Edit transactions | ✅ |
+| 7 | Delete transactions | ✅ |
+| 8 | Search transactions | ✅ |
+| 9 | Filter by date / category / type | ✅ |
+| 10 | Calendar view of financial activity | ✅ |
+| 11 | Create monthly budgets | ✅ |
+| 12 | See budget usage | ✅ |
+| 13 | Local budget alerts | ✅ |
+| 14 | Advanced charts | ✅ |
+| 15 | Daily / monthly / category reports | ✅ |
 | ~~16~~ | ~~Multiple currencies~~ | ❌ Cut — PKR only |
 | ~~17~~ | ~~Manual exchange rates~~ | ❌ Cut — PKR only |
-| 18 | Export all data as JSON | 🚧 |
-| 19 | Export transactions as CSV | 🚧 |
-| 20 | Import a previous JSON backup | 🚧 |
-| 21 | Import the app's own CSV format | 🚧 |
-| 22 | Work completely offline | 🚧 |
-| 23 | Close and reopen without data loss | 🚧 |
-| 24 | Handle corrupt/invalid import files safely | 🚧 |
-| 25 | Dark / light / system themes | 🚧 |
+| 18 | Export all data as JSON | ✅ |
+| 19 | Export transactions as CSV | ✅ |
+| 20 | Import a previous JSON backup | ✅ |
+| 21 | Import the app's own CSV format | ✅ |
+| 22 | Work completely offline | ✅ |
+| 23 | Close and reopen without data loss | ✅ |
+| 24 | Handle corrupt/invalid import files safely | ✅ |
+| 25 | Dark / light / system themes | ✅ |
 
-*(This table is the project's definition of done. Marks flip to ✅ as each phase lands.)*
+*(This table is the project's definition of done. All 23 in-scope criteria are met; 16 and 17 were
+cut when the app was fixed to a single currency.)*
 
 ---
 
@@ -281,28 +282,31 @@ A rolling snapshot is written to `backup/` on app start, keeping a configurable 
 
 ---
 
-## Multi-currency
+## Rupees only
 
-Each transaction permanently keeps the currency it was recorded in. Changing your base currency
-never rewrites historical amounts.
+Every amount in Paisa is **PKR**, held as whole paisa in a `Long`. Multi-currency was cut from the
+product: there is no currency picker, no exchange-rate table, no currency management screen, and
+nothing anywhere that says "converted using your manual rates".
 
-Because the app has no internet access, exchange rates are **entered manually by you**. Each
-currency stores a single rate relative to the base currency:
+The `Currency` record itself survives, seeded with exactly one entry:
 
-```
-Base currency: PKR
-1 USD = 280 PKR
-1 AED =  76 PKR
+```kotlin
+Currency("PKR", "Pakistani Rupee", "Rs.", decimalDigits = 2, rateToBase = 1.0)
 ```
 
-Cross-currency conversion derives from those anchors rather than storing every pair, which keeps
-the rate table consistent and O(n) instead of O(n²).
+It is kept for two reasons and no others: `MoneyFormatter` reads the symbol and `decimalDigits`
+from it, and keeping `currencies.json` in place meant the on-disk schema never needed a breaking
+change. `CurrencyRepository` is **read-only** — no `upsert`, no `setBaseCurrency`, no `archive` —
+so "the app cannot end up with a second currency" is a property of the types rather than a promise
+about call sites.
 
-Conversion happens at **read time only** — when a report, dashboard total, or budget needs to
-combine currencies. Rounding occurs once, half-up, at the target currency's precision. Anywhere
-the app shows a converted figure it is labelled:
+Sums still route through `CurrencyTable.toBase`, which is an identity conversion now. That is
+deliberate: a hand-edited or imported record carrying some other code is normalised on the way in
+rather than silently added up as though it were rupees.
 
-> Converted using your manual rates.
+Builds before the cut seeded eight currencies, and the seed only runs when the file is missing — so
+`FileCurrencyRepositoryImpl` collapses whatever it finds on disk down to PKR on read. Without that,
+an upgraded install would light every currency picker straight back up.
 
 ---
 
@@ -469,19 +473,34 @@ CSV import auto-maps the app's own header row and offers manual column mapping f
 .\gradlew.bat testDebugUnitTest
 ```
 
-The suite is pure JVM — no emulator needed. It covers balance and budget arithmetic, currency
-conversion, date and category filtering, CSV round-tripping (including commas, embedded quotes,
-newlines, and non-Latin text), JSON serialization and schema migration, duplicate detection,
-recalculation after edits and deletions, and `JsonFileStore`'s corruption and interrupted-write
-recovery paths.
+**341 tests, pure JVM — no emulator needed.** They run against a real `JsonFileStore` pointed at a
+temp directory rather than a mock, because the month-shard behaviour *is* the thing under test
+wherever dates are involved, and a fake would happily hide the bug that matters.
+
+What earns its keep:
+
+- **Money** — `Long` minor units, overflow reported rather than wrapped, no drift across a thousand
+  additions, and half-up rounding in exactly one place
+- **Dates** — period resolution for every first-day-of-week, the 31st-of-March-back-to-February
+  trap, leap years, and calendar grid geometry across 36 months × 7 week starts
+- **Files** — atomic writes, a truncated file quarantined and recovered from its sidecar, a newer
+  `schemaVersion` neither read nor overwritten, 20 concurrent writes to one file not interleaving,
+  and a cross-month edit moving a record between shards
+- **Mappers** — a malformed record dropped rather than invented, a negative stored amount
+  corrected, and every domain object surviving a round trip
+- **CSV** — embedded commas, doubled quotes, quoted newlines, CRLF, a UTF-8 BOM
+- **Import** — validation writing nothing, the same file imported twice changing nothing the second
+  time, and a Replace snapshotting before it wipes
 
 Representative cases:
 
 ```
 Income 100,000 − Expenses 40,000            → Balance 60,000
 Budget 20,000, Spent 15,000                 → 75% used, 5,000 remaining
-$10 at a manual rate of 280                 → Rs. 2,800
+Rs. 9,000 over two days of a 30-day month   → Rs. 300/day, not Rs. 4,500
 ```
+
+Sample data for trying the app out is in [docs/sample-data/](docs/sample-data/).
 
 ---
 

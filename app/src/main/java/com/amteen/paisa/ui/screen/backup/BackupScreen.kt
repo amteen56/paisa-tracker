@@ -46,6 +46,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -346,8 +347,9 @@ private fun ImportPreviewDialog(
 
                 if (preview.duplicateTransactions > 0) {
                     Text(
-                        text = stringResource(
-                            R.string.backup_preview_duplicates,
+                        text = pluralStringResource(
+                            R.plurals.backup_preview_duplicates,
+                            preview.duplicateTransactions,
                             preview.duplicateTransactions,
                         ),
                         style = MaterialTheme.typography.bodySmall,
@@ -357,8 +359,9 @@ private fun ImportPreviewDialog(
 
                 if (preview.repairedReferences > 0) {
                     Text(
-                        text = stringResource(
-                            R.string.backup_preview_repaired,
+                        text = pluralStringResource(
+                            R.plurals.backup_preview_repaired,
+                            preview.repairedReferences,
                             preview.repairedReferences,
                         ),
                         style = MaterialTheme.typography.bodySmall,
@@ -379,8 +382,9 @@ private fun ImportPreviewDialog(
                     }
                     if (preview.unreadable.size > MAX_PROBLEMS_SHOWN) {
                         Text(
-                            text = stringResource(
-                                R.string.backup_preview_more_problems,
+                            text = pluralStringResource(
+                                R.plurals.backup_preview_more_problems,
+                                preview.unreadable.size - MAX_PROBLEMS_SHOWN,
                                 preview.unreadable.size - MAX_PROBLEMS_SHOWN,
                             ),
                             style = MaterialTheme.typography.bodySmall,
@@ -392,8 +396,9 @@ private fun ImportPreviewDialog(
                 if (preview.isDestructive) {
                     HorizontalDivider()
                     Text(
-                        text = stringResource(
-                            R.string.backup_preview_will_delete,
+                        text = pluralStringResource(
+                            R.plurals.backup_preview_will_delete,
+                            preview.replacedTransactions,
                             preview.replacedTransactions,
                         ),
                         style = MaterialTheme.typography.bodyMedium,

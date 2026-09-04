@@ -10,7 +10,6 @@
     <string name="add_transaction">Add transaction</string>
 
     <!-- Screen titles -->
-    <string name="title_home">Home</string>
     <string name="title_expenses">Transactions</string>
     <string name="title_reports">Reports</string>
     <string name="title_more">More</string>
@@ -173,7 +172,6 @@
     <string name="calendar_active_days">Recorded on %1$d of %2$d days</string>
     <string name="calendar_busiest_day">Busiest day</string>
     <string name="calendar_busiest_day_value">%1$s · %2$s</string>
-    <string name="calendar_open_busiest_day">Open the busiest day, %1$s, %2$s spent</string>
     <string name="calendar_figures_in">Day figures are in %1$s, shortened to fit.</string>
     <!-- Spoken alternative for the grid, so a screen reader gets the shape of the
          month without touring 42 cells. -->
@@ -188,7 +186,6 @@
         <item quantity="one">%1$d entry</item>
         <item quantity="other">%1$d entries</item>
     </plurals>
-    <string name="calendar_day_empty_title">Nothing on this day</string>
     <string name="calendar_day_empty_message">No expense or income was recorded on this date.</string>
     <string name="calendar_day_add_expense">Add an expense</string>
     <string name="calendar_day_close">Close</string>
@@ -197,12 +194,9 @@
     <string name="calendar_error_title">Could not work out this month</string>
 
     <!-- Reports -->
-    <string name="reports_period">Period</string>
     <string name="reports_custom_range">Custom range…</string>
-    <string name="reports_overview">Overview</string>
     <string name="reports_spent">Spent</string>
     <string name="reports_income">Income</string>
-    <string name="reports_net">Net</string>
     <string name="reports_per_day">Average per day</string>
     <plurals name="reports_over_days">
         <item quantity="one">Over 1 day</item>
@@ -228,8 +222,6 @@
     <string name="reports_empty_title">Nothing in this period</string>
     <string name="reports_empty_message">Pick a different period, or record an expense and the charts fill in.</string>
     <string name="reports_error_title">Could not build this report</string>
-    <string name="reports_range_start">Start date</string>
-    <string name="reports_range_end">End date</string>
 
     <!-- Import and export -->
     <string name="backup_export_title">Export</string>
@@ -255,10 +247,22 @@
     <string name="backup_preview_replace_title">Replace everything?</string>
     <string name="backup_preview_taken">Backup taken %1$s</string>
     <string name="backup_preview_counts">%1$d transactions, %2$d categories, %3$d payment methods, %4$d budgets.</string>
-    <string name="backup_preview_duplicates">%1$d already on this device and will be skipped.</string>
-    <string name="backup_preview_repaired">%1$d missing category/categories will be recreated so nothing is orphaned.</string>
-    <string name="backup_preview_more_problems">…and %1$d more problem(s).</string>
-    <string name="backup_preview_will_delete">This deletes %1$d transaction(s) already on this device.</string>
+    <plurals name="backup_preview_duplicates">
+        <item quantity="one">%1$d is already on this device and will be skipped.</item>
+        <item quantity="other">%1$d are already on this device and will be skipped.</item>
+    </plurals>
+    <plurals name="backup_preview_repaired">
+        <item quantity="one">%1$d missing category will be recreated so nothing is orphaned.</item>
+        <item quantity="other">%1$d missing categories will be recreated so nothing is orphaned.</item>
+    </plurals>
+    <plurals name="backup_preview_more_problems">
+        <item quantity="one">…and %1$d more problem.</item>
+        <item quantity="other">…and %1$d more problems.</item>
+    </plurals>
+    <plurals name="backup_preview_will_delete">
+        <item quantity="one">This deletes %1$d transaction already on this device.</item>
+        <item quantity="other">This deletes %1$d transactions already on this device.</item>
+    </plurals>
     <string name="backup_preview_snapshot_first">A local snapshot is saved first, so this can be undone.</string>
     <string name="backup_preview_merge_confirm">Add</string>
     <string name="backup_preview_replace_confirm">Replace</string>

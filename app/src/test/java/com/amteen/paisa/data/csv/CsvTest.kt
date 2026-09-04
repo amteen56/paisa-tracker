@@ -89,7 +89,7 @@ class CsvTest {
     fun `a UTF-8 BOM is skipped`() {
         // Files round-tripped through Excel on Windows routinely arrive with one,
         // and without this the first column name never matches.
-        val rows = Csv.parse("﻿date,amount\r\n2026-09-01,100\r\n")
+        val rows = Csv.parse("\uFEFFdate,amount\r\n2026-09-01,100\r\n")
         assertEquals("date", rows.first().first())
     }
 

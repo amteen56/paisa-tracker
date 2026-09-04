@@ -21,7 +21,7 @@
 | ~~9~~ | ~~Currencies & manual exchange rates~~ | ❌ **Cut — app is PKR-only** |
 | **9** | Import/Export (JSON + CSV) | ✅ **Done — 290 tests green** |
 | **10** | Polish | ✅ **Done — 298 tests green** |
-| 11 | Unit tests & docs | ⬜ **Next** |
+| **11** | Unit tests & docs | ✅ **Done — 341 tests green, lint clean** |
 
 Full phase detail: [PROJECT_PLAN.md](PROJECT_PLAN.md).
 
@@ -50,6 +50,8 @@ One commit per phase, pushed to `origin/main` as soon as it is made.
 | `52de1ad` | Fix the app to PKR: remove every currency option |
 | `463b06c` | Phase 8: reports and charts |
 | `97f24e5` | Phase 9: import and export |
+| `68a86d0` | Phase 10: polish |
+| _pending_ | Phase 11: tests, docs and the lint pass |
 
 Verify the identity before committing — this repo must **not** be authored by the global work
 account:
@@ -836,6 +838,91 @@ rather than claiming it.
 
 ---
 
+## What was built in Phase 11
+
+Test gaps closed, the docs brought back in line with the code, and the single lint
+pass that had been deferred since Phase 4.
+
+- `data/mapper/DtoMappersTest` — the wire-format boundary, 20 cases
+- `core/time/DateFormattersTest`, `core/time/PeriodFilterTest` — the shared date logic
+- `docs/SampleCsvTest` — the shipped sample file must actually import
+- `docs/sample-data/` — a README and a hand-editable `transactions.csv`
+- README: the acceptance table, the currency section, the testing section
+
+**341 tests, all green** (43 new). **Lint: 0 errors, 19 warnings** — down from 1 error
+and 42.
+
+### The tests worth having added
+
+**The mappers.** A mapper bug is the quiet kind: the file parses, the app starts, and
+a field is silently wrong or a record has vanished. Twenty cases cover the two rules
+that matter — a malformed record is *dropped rather than invented*, and a domain
+object survives a round trip unchanged. The pointed ones: a transaction with no
+readable date is dropped (an amount has to sit on some day to be summed at all), a
+negative stored amount is corrected rather than trusted, blank optional strings become
+null rather than empty, and a hand-edited settings file with `themeMode: NEON` falls
+back instead of stopping the app from starting.
+
+**Period resolution.** Shared by history, the dashboard, the calendar and reports, so
+an off-by-one here is an off-by-one in every figure the app shows. Including the
+31st-of-March-back-to-February trap, leap years, and that a week starting on today's
+own weekday starts *today* rather than a week ago.
+
+**The shipped sample CSV.** One test whose entire job is to fail when the documented
+format and the real importer stop agreeing — far more likely than either changing on
+its own. It caught a real bug immediately: the CSV I had just written contained bare
+quotes inside an unquoted field, which is malformed per RFC 4180. The file was wrong,
+not the parser.
+
+### What the lint pass found
+
+**One error, and it was real.** `Csv.kt` contained a literal byte-order mark, because
+the BOM-skipping code was written with the character itself rather than the `﻿`
+escape. An invisible BOM sitting in a source file is both unreadable and, as lint
+correctly says, an error. Now a named constant.
+
+**Six `ConstantLocale` warnings, and they were a genuine bug.** `DateFormatters` built
+its six `DateTimeFormatter`s once, in `val`s, from `Locale.getDefault()`. If the user
+changed their device language, the whole app carried on formatting dates in the old
+one until the process was killed. They are now cached *per locale* rather than per
+process — same allocation saving, without the staleness.
+
+**Twelve unused resources, and five of them were the interesting kind.**
+`title_add_expense`, `title_add_income`, `title_edit_transaction` and
+`title_transaction_details` were unused because those screens had **hardcoded English
+titles** instead. That is a localisation bug wearing an unused-resource costume, so
+the fix was to use the strings, not delete them. The other seven were genuinely dead
+and went.
+
+**Four strings became plurals** — the single-quantity ones in the import preview.
+
+### The nineteen warnings left, and why
+
+**Fourteen are dependency upgrades** — AGP 8.13 → 9.4, Kotlin 2.2 → 2.4, the Compose
+BOM, and so on. CLAUDE.md says to stop and ask before touching the dependency list,
+and a major AGP bump is not something to slip into a docs phase. Left for you to
+decide.
+
+**Four are `PluralsCandidate` on strings that cannot cleanly be plurals.** Android
+plurals select on exactly one quantity, and these have either two independent ones
+("Recorded on 14 of 30 days"), four ("12 transactions, 3 categories, 2 payment
+methods, 1 budget"), or a constant that can never be 1 (the sample data's six months).
+Restructuring them to satisfy lint would make the strings worse to read for no user
+benefit.
+
+**One is `ObsoleteSdkInt` on `mipmap-anydpi-v26`.** I tried the suggested fix —
+renaming the folder to `mipmap-anydpi` — and AAPT then could not resolve
+`mipmap/ic_launcher` at all, so the build failed. Reverted. A cosmetic warning is not
+worth a broken launcher icon.
+
+### Still device work
+
+The dark-mode audit and TalkBack pass remain a judgement made looking at a phone, as
+noted in Phase 10. Every screen has light and dark previews and a spoken alternative;
+whether they read *well* is not something `assembleDebug` can tell you.
+
+---
+
 ## Fixing the app to PKR
 
 Phase 7 removed the calendar's own currency surface. This finished the job across
@@ -909,11 +996,23 @@ Rs. 10. That is test data from a cut feature; clearing app data resets it cleanl
 
 ---
 
-## Next: Phase 11 — tests and docs
+## All phases complete
 
-- Fill the remaining unit-test gaps
-- README updates and `docs/sample-data/`
-- Then one lint pass across the whole app, fixing everything it finds
+| | |
+|---|---|
+| Phases delivered | 0–11, with the former Phase 9 (currencies) cut |
+| Unit tests | **341**, all green, pure JVM |
+| Lint | **0 errors**, 19 warnings (14 of them dependency upgrades awaiting a decision) |
+| Screens | No placeholders left — every route is a real screen |
+
+**Open, and deliberately so:**
+
+1. **Dependency upgrades.** Fourteen lint warnings covering AGP, Kotlin, the Compose
+   BOM, coroutines and serialization. CLAUDE.md forbids touching the dependency list
+   without asking, and a major AGP bump needs its own change with its own testing.
+2. **The device pass.** Dark mode and TalkBack, on a real phone. Phase 3 already
+   recorded the lesson that no unit test catches a layout constraint — the `+Rs.`
+   truncation bug was invisible to the whole suite.
 
 The architectural rules every phase is held to are in [../CLAUDE.md](../CLAUDE.md) — money is never
 a `Double`, writes are always atomic, reads recover rather than crash, and a composable renders

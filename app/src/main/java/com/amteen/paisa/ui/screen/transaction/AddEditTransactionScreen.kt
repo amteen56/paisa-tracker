@@ -59,9 +59,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.amteen.paisa.R
 import com.amteen.paisa.domain.model.TransactionType
 import com.amteen.paisa.ui.components.LoadingState
 import com.amteen.paisa.ui.icons.CategoryIcons
@@ -117,11 +119,13 @@ fun AddEditTransactionScreen(
             TopAppBar(
                 title = {
                     Text(
-                        when {
-                            state.isEditing -> "Edit transaction"
-                            state.type.isIncome -> "Add income"
-                            else -> "Add expense"
-                        },
+                        stringResource(
+                            when {
+                                state.isEditing -> R.string.title_edit_transaction
+                                state.type.isIncome -> R.string.title_add_income
+                                else -> R.string.title_add_expense
+                            },
+                        ),
                     )
                 },
                 navigationIcon = {

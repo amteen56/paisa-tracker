@@ -13,6 +13,13 @@ object Csv {
     /** Excel and Sheets both need CRLF to treat a quoted newline as in-cell. */
     const val LINE_BREAK = "\r\n"
 
+    /**
+     * Written as an escape rather than as the character itself: an invisible
+     * byte-order mark sitting in a source file is unreadable, and Android lint
+     * flags a literal one as an error.
+     */
+    private const val UTF8_BOM = "\uFEFF"
+
     fun writeRow(values: List<String>): String =
         values.joinToString(",") { escape(it) } + LINE_BREAK
 
@@ -46,7 +53,7 @@ object Csv {
      * may well have been round-tripped through a spreadsheet on another platform.
      */
     fun parse(text: String): List<List<String>> {
-        val input = text.removePrefix("﻿")
+        val input = text.removePrefix(UTF8_BOM)
         val rows = ArrayList<List<String>>()
         var row = ArrayList<String>()
         val field = StringBuilder()

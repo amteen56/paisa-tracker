@@ -34,8 +34,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.amteen.paisa.R
 import com.amteen.paisa.core.money.MoneyFormatter
 import com.amteen.paisa.core.time.DateFormatters
 import com.amteen.paisa.domain.model.TransactionDetails
@@ -64,7 +66,7 @@ fun TransactionDetailScreen(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text("Transaction") },
+                title = { Text(stringResource(R.string.title_transaction_details)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Go back")
