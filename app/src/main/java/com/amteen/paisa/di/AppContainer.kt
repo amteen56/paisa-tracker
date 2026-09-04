@@ -33,6 +33,8 @@ import com.amteen.paisa.domain.usecase.GetBudgetHistoryUseCase
 import com.amteen.paisa.domain.usecase.GetBudgetStatusUseCase
 import com.amteen.paisa.domain.usecase.GetDashboardSummaryUseCase
 import com.amteen.paisa.domain.usecase.BuildReportUseCase
+import com.amteen.paisa.domain.usecase.ClearSampleDataUseCase
+import com.amteen.paisa.domain.usecase.SeedSampleDataUseCase
 import com.amteen.paisa.domain.usecase.CommitImportUseCase
 import com.amteen.paisa.domain.usecase.ExportBackupUseCase
 import com.amteen.paisa.domain.usecase.ExportCsvUseCase
@@ -266,6 +268,18 @@ class AppContainer(context: Context) {
         exportBackup = exportBackup,
         backups = backupRepository,
         settings = settingsRepository,
+    )
+
+    // Sample data. Merges in and takes only its own records back out, matched on
+    // an id prefix, so trying it out is never a one-way door.
+    val seedSampleData = SeedSampleDataUseCase(
+        transactions = transactionRepository,
+        budgets = budgetRepository,
+    )
+
+    val clearSampleData = ClearSampleDataUseCase(
+        transactions = transactionRepository,
+        budgets = budgetRepository,
     )
 
     val getTransactionDetails = GetTransactionDetailsUseCase(

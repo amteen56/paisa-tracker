@@ -15,6 +15,7 @@ import com.amteen.paisa.ui.screen.history.TransactionHistoryViewModel
 import com.amteen.paisa.ui.screen.home.HomeViewModel
 import com.amteen.paisa.ui.screen.paymentmethod.PaymentMethodViewModel
 import com.amteen.paisa.ui.screen.reports.ReportsViewModel
+import com.amteen.paisa.ui.screen.settings.SettingsViewModel
 import com.amteen.paisa.ui.screen.transaction.AddEditTransactionViewModel
 import com.amteen.paisa.ui.screen.transaction.TransactionDetailViewModel
 import java.time.LocalDate
@@ -174,6 +175,16 @@ object ViewModelFactories {
                 paymentMethodRepository = container.paymentMethodRepository,
                 currencyRepository = container.currencyRepository,
                 settingsRepository = container.settingsRepository,
+            )
+        }
+    }
+
+    fun settings(container: AppContainer): ViewModelProvider.Factory = viewModelFactory {
+        initializer {
+            SettingsViewModel(
+                settingsRepository = container.settingsRepository,
+                seedSampleData = container.seedSampleData,
+                clearSampleData = container.clearSampleData,
             )
         }
     }

@@ -44,7 +44,6 @@ class BudgetAlertsTest {
     private val month = YearMonth.of(2026, 9)
 
     private val pkr = Currency("PKR", "Pakistani Rupee", "Rs.", 2, 1.0)
-    private val usd = Currency("USD", "US Dollar", "$", 2, 280.0)
 
     private val food = Category(
         id = "cat-food",
@@ -72,7 +71,7 @@ class BudgetAlertsTest {
         budgets = budgets,
         transactions = transactions,
         categories = FakeCategoryRepository(listOf(food)),
-        currencies = FakeCurrencyRepository(listOf(pkr, usd)),
+        currencies = FakeCurrencyRepository(listOf(pkr)),
         settings = settings,
         alertState = alertState,
         today = { today },
@@ -287,21 +286,6 @@ class BudgetAlertsTest {
         spend("a", 120_000)
 
         assertTrue(evaluate()().isEmpty())
-    }
-
-    // -- Currency -----------------------------------------------------------
-
-    @Test
-    fun `a foreign expense is converted into the budget's currency before comparing`() = runTest {
-        // A $100 limit. Rs. 28,000 is exactly $100 at 280, so this is 100% — not the
-        // 28,000% a raw comparison would report.
-        foodBudget(limitMinor = 10_000, currencyCode = "USD")
-        spend("a", 2_800_000, currencyCode = "PKR")
-
-        val event = evaluate()().single()
-
-        assertEquals(BudgetAlertThresholds.EXCEEDED, event.newlyCrossed)
-        assertEquals(100.0, event.summary.progress.percent, 0.001)
     }
 
     // -- Scope --------------------------------------------------------------

@@ -210,16 +210,13 @@ class ObserveTransactionsUseCase(
     private fun totals(items: List<TransactionDetails>, table: CurrencyTable): TransactionTotals {
         var income = 0L
         var expense = 0L
-        var mixed = false
         for (item in items) {
-            if (item.transaction.currencyCode != table.base.code) mixed = true
             val inBase = table.toBase(item.money).amountMinor
             if (item.transaction.type.isIncome) income += inBase else expense += inBase
         }
         return TransactionTotals(
             income = Money(income, table.base.code),
             expense = Money(expense, table.base.code),
-            mixedCurrency = mixed,
             count = items.size,
         )
     }

@@ -151,8 +151,6 @@ class BuildReportUseCaseTest {
         assertEquals(1_000_000L, result.totals.income.amountMinor)
         assertEquals(200_000L, result.totals.expense.amountMinor)
         assertEquals(800_000L, result.totals.net.amountMinor)
-        // One currency: nothing is converted, so nothing is disclosed as converted.
-        assertFalse(result.totals.mixedCurrency)
     }
 
     @Test

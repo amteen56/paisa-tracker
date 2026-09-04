@@ -33,7 +33,7 @@ import com.amteen.paisa.di.LocalAppContainer
 import com.amteen.paisa.di.ViewModelFactories
 import com.amteen.paisa.domain.model.CategoryScope
 import com.amteen.paisa.domain.model.TransactionType
-import com.amteen.paisa.ui.components.PlaceholderScreen
+import com.amteen.paisa.ui.screen.about.AboutScreen
 import com.amteen.paisa.ui.screen.backup.BackupScreen
 import com.amteen.paisa.ui.screen.backup.BackupViewModel
 import com.amteen.paisa.ui.screen.budget.BudgetEditScreen
@@ -55,6 +55,8 @@ import com.amteen.paisa.ui.screen.paymentmethod.PaymentMethodScreen
 import com.amteen.paisa.ui.screen.paymentmethod.PaymentMethodViewModel
 import com.amteen.paisa.ui.screen.reports.ReportsScreen
 import com.amteen.paisa.ui.screen.reports.ReportsViewModel
+import com.amteen.paisa.ui.screen.settings.SettingsScreen
+import com.amteen.paisa.ui.screen.settings.SettingsViewModel
 import com.amteen.paisa.ui.screen.transaction.AddEditTransactionScreen
 import com.amteen.paisa.ui.screen.transaction.AddEditTransactionViewModel
 import com.amteen.paisa.ui.screen.transaction.TransactionDetailScreen
@@ -410,18 +412,20 @@ fun PaisaNavHost(
 
             // --- Settings --------------------------------------------------
             composable(Routes.SETTINGS) {
-                PlaceholderScreen(
-                    title = stringResource(R.string.title_settings),
-                    phaseNote = "Settings arrive alongside the features they configure.",
+                val container = LocalAppContainer.current
+                val viewModel: SettingsViewModel = viewModel(
+                    factory = ViewModelFactories.settings(container),
+                )
+                val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+                SettingsScreen(
+                    state = state,
+                    onEvent = viewModel::onEvent,
                     onBack = navController::popBackStack,
                 )
             }
             composable(Routes.ABOUT) {
-                PlaceholderScreen(
-                    title = stringResource(R.string.title_about),
-                    phaseNote = stringResource(R.string.privacy_statement),
-                    onBack = navController::popBackStack,
-                )
+                AboutScreen(onBack = navController::popBackStack)
             }
         }
     }

@@ -105,7 +105,6 @@
         <item quantity="one">Over the last day</item>
         <item quantity="other">Over the last %1$d days</item>
     </plurals>
-    <string name="home_converted_note">Includes amounts converted using your manual rates.</string>
     <string name="home_week_title">Last 7 days</string>
     <string name="home_week_empty">Nothing spent in the last 7 days.</string>
     <string name="home_budgets_title">Budgets</string>
@@ -272,8 +271,37 @@
     <string name="notification_budget_body_left">%1$s left of your %2$s limit.</string>
     <string name="notification_budget_body_over">%1$s over your %2$s limit.</string>
 
-    <!-- Placeholder shown by not-yet-implemented screens -->
-    <string name="coming_soon">Coming soon</string>
+    <!-- Settings -->
+    <string name="settings_appearance">Appearance</string>
+    <string name="settings_theme">Theme</string>
+    <string name="settings_theme_system">System</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_dates">Dates</string>
+    <string name="settings_first_day">Week starts on</string>
+    <string name="settings_first_day_note">Used by the calendar grid and by the “this week” period.</string>
+    <string name="settings_lists">Lists</string>
+    <string name="settings_default_sort">Default sort</string>
+    <string name="settings_alerts">Alerts</string>
+    <string name="settings_backups">Local snapshots</string>
+    <string name="settings_backups_keep">Keep</string>
+    <string name="settings_backups_note">Older snapshots are deleted automatically once there are more than this.</string>
+    <string name="settings_sample_title">Sample data</string>
+    <string name="settings_sample_body">Adds about %1$d months of plausible transactions and a few budgets, so the charts and reports have something to show.</string>
+    <string name="settings_sample_add">Add sample data</string>
+    <string name="settings_sample_remove">Remove it</string>
+    <string name="settings_sample_busy">Working…</string>
+    <string name="settings_sample_note">Anything you recorded yourself is left alone, in both directions.</string>
+
+    <!-- About -->
+    <string name="about_version">Version %1$s</string>
+    <string name="about_offline_title">Offline by design</string>
+    <string name="about_offline_body">Paisa has no internet permission at all. There is no account, no sync and no analytics — your ledger is a set of JSON files in this app’s private storage.</string>
+    <string name="about_storage_title">Where your data lives</string>
+    <string name="about_storage_body">Transactions are stored one file per month, so a change only rewrites that month. Every write is atomic, and the previous copy is kept alongside it in case a file is ever found damaged.</string>
+    <string name="about_currency_title">Rupees only</string>
+    <string name="about_currency_body">Every amount is PKR, held as whole paisa rather than a decimal, so no total can drift by rounding.</string>
+
 
     <!-- Privacy -->
     <string name="privacy_statement">Your financial data is stored locally on your device. The application does not require an account or send financial information to a remote server.</string>

@@ -862,7 +862,6 @@ private fun previewSummary(empty: Boolean = false): DashboardSummary {
             dailySpend = (0..6).map {
                 DailySpend(today.minusDays((6 - it).toLong()), 0L, "PKR")
             },
-            mixedCurrency = false,
             hasAnyTransactions = false,
         )
     }
@@ -900,7 +899,6 @@ private fun previewSummary(empty: Boolean = false): DashboardSummary {
         totals = TransactionTotals(
             income = Money(15_000_00, "PKR"),
             expense = Money(4_820_00, "PKR"),
-            mixedCurrency = true,
             count = 24,
         ),
         todaySpentMinor = 1_150_00,
@@ -924,7 +922,6 @@ private fun previewSummary(empty: Boolean = false): DashboardSummary {
                     ),
                     month = month,
                     spentMinor = 2_400_00,
-                    mixedCurrency = false,
                 ),
                 category = food,
                 subcategory = null,
@@ -936,7 +933,6 @@ private fun previewSummary(empty: Boolean = false): DashboardSummary {
             .mapIndexed { index, amount ->
                 DailySpend(today.minusDays((6 - index).toLong()), amount, "PKR")
             },
-        mixedCurrency = true,
         hasAnyTransactions = true,
     )
 }

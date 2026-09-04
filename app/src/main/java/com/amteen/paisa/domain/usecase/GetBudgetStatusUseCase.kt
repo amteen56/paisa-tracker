@@ -108,19 +108,16 @@ class GetBudgetStatusUseCase {
         table: CurrencyTable,
     ): BudgetProgress {
         var spent = 0L
-        var mixed = false
         for (record in transactions) {
             if (!record.type.isExpense) continue
             if (YearMonth.from(record.date) != month) continue
             if (!budget.covers(record)) continue
-            if (record.currencyCode != budget.currencyCode) mixed = true
             spent += table.convert(record.money, budget.currencyCode).amountMinor
         }
         return BudgetProgress(
             budget = budget,
             month = month,
             spentMinor = spent,
-            mixedCurrency = mixed,
         )
     }
 }

@@ -227,8 +227,6 @@ class GetMonthCalendarUseCase(
             totals = TransactionTotals(
                 income = Money(income, base.code),
                 expense = Money(expense, base.code),
-                // Always false: one currency means nothing is ever converted.
-                mixedCurrency = false,
                 count = count,
             ),
             peakExpenseMinor = busiest?.expenseMinor ?: 0L,

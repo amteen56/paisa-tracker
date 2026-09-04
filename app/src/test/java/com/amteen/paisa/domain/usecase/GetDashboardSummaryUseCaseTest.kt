@@ -47,7 +47,6 @@ class GetDashboardSummaryUseCaseTest {
     private val today = LocalDate.of(2026, 9, 12)
 
     private val pkr = Currency("PKR", "Pakistani Rupee", "Rs.", 2, 1.0)
-    private val usd = Currency("USD", "US Dollar", "$", 2, 280.0)
 
     private val food = Category(
         id = "cat-food",
@@ -90,7 +89,7 @@ class GetDashboardSummaryUseCaseTest {
         paymentMethods = FakePaymentMethodRepository(
             listOf(PaymentMethod("pm-cash", "Cash", "cash")),
         ),
-        currencies = FakeCurrencyRepository(listOf(pkr, usd)),
+        currencies = FakeCurrencyRepository(listOf(pkr)),
         settings = FakeSettingsRepository(AppSettings(baseCurrencyCode = baseCurrency)),
         budgets = budgets,
         today = { on },
@@ -170,27 +169,6 @@ class GetDashboardSummaryUseCaseTest {
         )
 
         assertEquals(50_000L, summary().todaySpentMinor)
-    }
-
-    // -- Currency -----------------------------------------------------------
-
-    @Test
-    fun `a foreign expense is converted into the base currency before summing`() = runTest {
-        repository.save(transaction("pkr", 100_000))
-        // $10 at 280 = Rs. 2,800 = 280,000 minor units.
-        repository.save(transaction("usd", 1_000, currencyCode = "USD"))
-
-        val result = summary()
-
-        assertEquals(380_000L, result.totals.expense.amountMinor)
-        assertTrue(result.mixedCurrency)
-    }
-
-    @Test
-    fun `a single-currency month is not labelled as converted`() = runTest {
-        repository.save(transaction("a", 100_000))
-
-        assertFalse(summary().mixedCurrency)
     }
 
     // -- Daily average ------------------------------------------------------
@@ -417,23 +395,20 @@ class GetDashboardSummaryUseCaseTest {
     }
 
     @Test
-    fun `budget usage is measured in the budget's own currency, not the base`() = runTest {
-        // A $100 limit with PKR as base. A Rs. 2,800 expense is exactly $10 of it —
-        // comparing the raw numbers would report 2,800 against 100 and scream.
+    fun `a budget resolves its real currency so the limit renders with a symbol`() = runTest {
         budgets.upsert(
-            Budget(id = "b1", categoryId = "cat-food", limitMinor = 10_000, currencyCode = "USD"),
+            Budget(id = "b1", categoryId = "cat-food", limitMinor = 300_000, currencyCode = "PKR"),
         )
-        repository.save(transaction("a", 280_000, currencyCode = "PKR"))
+        repository.save(transaction("a", 30_000))
 
         val budget = summary().budgets.single()
 
-        assertEquals("USD", budget.progress.spent.currencyCode)
-        assertEquals(1_000L, budget.progress.spentMinor)
+        assertEquals(30_000L, budget.progress.spentMinor)
         assertEquals(10.0, budget.progress.percent, 0.001)
-        assertTrue(budget.progress.mixedCurrency)
-        // The symbol has to come from the real currency, or the limit renders as
-        // "USD 100.00" instead of "$100.00".
-        assertEquals("$", budget.currency.symbol)
+        // The symbol has to come from the resolved Currency, or the limit renders as
+        // "PKR 3,000.00" instead of "Rs. 3,000.00".
+        assertEquals("Rs.", budget.currency.symbol)
+        assertEquals(2, budget.currency.decimalDigits)
     }
 
     @Test

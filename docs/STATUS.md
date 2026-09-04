@@ -20,8 +20,8 @@
 | **8** | Reports & charts | ✅ **Done — 249 tests green** |
 | ~~9~~ | ~~Currencies & manual exchange rates~~ | ❌ **Cut — app is PKR-only** |
 | **9** | Import/Export (JSON + CSV) | ✅ **Done — 290 tests green** |
-| 10 | Polish | ⬜ **Next** |
-| 11 | Unit tests & sample data | ⬜ |
+| **10** | Polish | ✅ **Done — 298 tests green** |
+| 11 | Unit tests & docs | ⬜ **Next** |
 
 Full phase detail: [PROJECT_PLAN.md](PROJECT_PLAN.md).
 
@@ -746,6 +746,96 @@ cover. Tested.
 
 ---
 
+## What was built in Phase 10
+
+Polish — and the phase where a fair amount of code got **deleted**.
+
+- `ui/screen/settings/` — the settings screen those preferences never had
+- `ui/screen/about/` — the three promises the app is built on, in the user's terms
+- `data/seed/SampleData.kt` + `domain/usecase/SampleDataUseCases.kt` — a seeded,
+  reversible sample ledger
+- Deleted: `ui/components/PlaceholderScreen.kt`, every `mixedCurrency` field, four
+  unused strings
+
+**298 unit tests, all green** (8 new).
+
+### Every placeholder is now a real screen
+
+`PlaceholderScreen` had done its job since Phase 1 and is gone, along with the
+`coming_soon` string. Nothing in the navigation graph says "arrives in Phase N" any
+more.
+
+Two of those placeholders were hiding a genuine gap. `AppSettings` has carried
+`themeMode`, `firstDayOfWeek`, `defaultSortOrder`, `budgetAlertsEnabled` and
+`backupsToKeep` since **Phase 2**, and there was no way to change any of them. The
+settings screen is the missing half rather than new state — the theme control works
+the moment it is tapped, because `MainActivity` was already collecting `themeMode`.
+
+`firstDayOfWeek` is the one worth calling out: the calendar grid and the "this week"
+period have both honoured it since Phase 7, against a value the user could not reach.
+
+### The dead-currency sweep, finished
+
+Phase 7's commit noted `mixedCurrency` was still a constructor parameter on
+`TransactionTotals`, `DashboardSummary` and `BudgetProgress`, always passed `false`.
+It is now gone from all three, along with `CurrencyTable.sumConverted` and
+`ConvertedTotal` — which turned out to have **no callers at all** — and the last live
+converted note, on the history screen's totals card.
+
+The tests that asserted conversion behaviour went with it. Four of them seeded a USD
+currency at rate 280 to prove amounts were converted before summing, sorting or
+filtering; none of that is reachable now, so they were rewritten in PKR where the
+underlying rule still matters (the amount filter still excludes out-of-range records,
+the amount sort still orders both ways) and dropped where it did not.
+
+`CurrencyConverterTest` stays as it is. `CurrencyConverter` is still the only place
+rounding happens, and testing it directly costs nothing.
+
+### Sample data, and why it is seeded rather than random
+
+`SampleData` uses a fixed seed, so the same call always produces the same ledger. A
+random generator makes a screenshot unrepeatable and a bug report impossible to follow
+up — "the daily average looks wrong" is only actionable if the data can be regenerated
+exactly.
+
+It is also **shaped** rather than uniform: salary on the 1st, rent on the 3rd, bills
+mid-month, groceries clustered at weekends, roughly a fifth of days empty, and one
+outlier a month. Uniform noise makes every chart in the app look identical and hides
+the very bugs a chart has — a flat trend line, a donut of equal slices and a calendar
+with no gaps would all look fine while being wrong.
+
+Nothing is ever dated in the future, because a forward-dated record skews the
+dashboard's rolling average and reads as a bug rather than as sample data.
+
+**Adding it is not a one-way door.** Every generated id carries a `sample-` prefix,
+which is what lets removal be surgical: seeding merges (a user who already recorded
+something real keeps it) and clearing removes only prefixed records and prefixed
+budgets. There is a test that a seed-then-clear round trip returns the ledger to
+byte-identical state, and another that a user's own budget survives the clear.
+
+Clearing does one whole-store write rather than a delete per record — several hundred
+individual deletes would rewrite the same month shards over and over.
+
+### Accessibility and touch targets, where they were actually wrong
+
+The settings chips get `heightIn(min = 48.dp)`, because Material chips are shorter
+than that by default and every one of these is a real control. Each `FilterChip`
+already reports its own selected state, so a screen reader says "selected" instead of
+leaving the user to infer it from a fill colour.
+
+The switch row speaks as one node — `"Alert me at 75%, 90% and 100%, on"` — rather
+than as a label and a separate control, which is two stops for one setting.
+
+### One thing deliberately not done
+
+The plan lists "dark-mode audit" and a "TalkBack pass". Both are **device work**, not
+code work: every screen has light and dark previews and a spoken alternative, but
+whether the result actually reads well is a judgement made looking at a phone. Phase 3
+already recorded the lesson that no unit test catches a layout constraint. Flagging it
+rather than claiming it.
+
+---
+
 ## Fixing the app to PKR
 
 Phase 7 removed the calendar's own currency surface. This finished the job across
@@ -819,12 +909,11 @@ Rs. 10. That is test data from a cut feature; clearing app data resets it cleanl
 
 ---
 
-## Next: Phase 10 — polish
+## Next: Phase 11 — tests and docs
 
-- Empty, error and loading states audited on every screen
-- Transitions, TalkBack pass, touch targets, dark-mode audit
-- Sample-data seeder
-- Removing the last unused currency strings and the dead `mixedCurrency` fields
+- Fill the remaining unit-test gaps
+- README updates and `docs/sample-data/`
+- Then one lint pass across the whole app, fixing everything it finds
 
 The architectural rules every phase is held to are in [../CLAUDE.md](../CLAUDE.md) — money is never
 a `Double`, writes are always atomic, reads recover rather than crash, and a composable renders

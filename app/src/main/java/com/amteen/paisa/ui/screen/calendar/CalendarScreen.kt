@@ -910,7 +910,6 @@ private fun previewState(withSpending: Boolean = true): CalendarUiState {
         totals = TransactionTotals(
             income = Money(inMonth.sumOf { it.incomeMinor }, "PKR"),
             expense = Money(inMonth.sumOf { it.expenseMinor }, "PKR"),
-            mixedCurrency = false,
             count = inMonth.sumOf { it.count },
         ),
         peakExpenseMinor = busiest?.expenseMinor ?: 0L,

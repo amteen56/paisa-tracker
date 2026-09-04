@@ -31,21 +31,6 @@ class CurrencyTable(
 
     fun toBase(money: Money): Money = convert(money, base.code)
 
-    /**
-     * Sums mixed-currency amounts into [targetCode].
-     *
-     * Returns the total alongside whether any conversion was needed, so the UI can
-     * label a figure that rests on the user's manual rates. See CLAUDE.md rule 5.
-     */
-    fun sumConverted(amounts: List<Money>, targetCode: String = base.code): ConvertedTotal {
-        var total = 0L
-        var mixed = false
-        for (money in amounts) {
-            if (money.currencyCode != targetCode) mixed = true
-            total += convert(money, targetCode).amountMinor
-        }
-        return ConvertedTotal(Money(total, targetCode), mixed)
-    }
 
     companion object {
         fun fallback(code: String) = Currency(
@@ -60,8 +45,3 @@ class CurrencyTable(
     }
 }
 
-/** @param mixedCurrency true when at least one amount had to be converted. */
-data class ConvertedTotal(
-    val total: Money,
-    val mixedCurrency: Boolean,
-)

@@ -51,14 +51,11 @@ enum class BudgetStatus {
  * currency** — expenses in other currencies are converted before summing, never
  * compared as raw numbers. See CLAUDE.md rule 7.
  *
- * @param mixedCurrency true when at least one contributing expense had to be
- *   converted, so the UI can label the figure as resting on manual rates.
  */
 data class BudgetProgress(
     val budget: Budget,
     val month: YearMonth,
     val spentMinor: Long,
-    val mixedCurrency: Boolean = false,
 ) {
     val spent: Money get() = Money(spentMinor, budget.currencyCode)
 

@@ -683,7 +683,6 @@ private fun previewState(): ReportsUiState {
             totals = TransactionTotals(
                 income = Money(4_500_000, "PKR"),
                 expense = Money(4_380_000, "PKR"),
-                mixedCurrency = false,
                 count = 67,
             ),
             dayCount = 30,

@@ -296,8 +296,6 @@ class BuildReportUseCase(
             totals = TransactionTotals(
                 income = Money(income, base.code),
                 expense = Money(expense, base.code),
-                // One currency: nothing is converted, so nothing is disclosed.
-                mixedCurrency = false,
                 count = inPeriod.size,
             ),
             dayCount = dayCount,

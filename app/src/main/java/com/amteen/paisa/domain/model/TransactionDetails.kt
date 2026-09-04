@@ -96,15 +96,14 @@ data class TransactionQuery(
 }
 
 /**
- * Income, expense and net for a set of transactions, converted into one currency.
+ * Income, expense and net for a set of transactions.
  *
- * [mixedCurrency] means at least one amount was converted using a manual rate, which
- * the UI must say out loud rather than presenting the figure as exact.
+ * A plain sum: the app is PKR-only, so there is no conversion and nothing to disclose
+ * as converted. See CLAUDE.md, Single currency.
  */
 data class TransactionTotals(
     val income: Money,
     val expense: Money,
-    val mixedCurrency: Boolean,
     val count: Int,
 ) {
     val net: Money get() = income - expense
@@ -113,7 +112,6 @@ data class TransactionTotals(
         fun empty(currencyCode: String) = TransactionTotals(
             income = Money.zero(currencyCode),
             expense = Money.zero(currencyCode),
-            mixedCurrency = false,
             count = 0,
         )
     }

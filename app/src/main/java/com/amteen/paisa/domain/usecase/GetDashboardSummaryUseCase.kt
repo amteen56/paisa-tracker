@@ -93,8 +93,6 @@ data class DashboardSummary(
     /** Exactly seven entries, oldest first, ending on [today]. */
     val dailySpend: List<DailySpend>,
 
-    /** At least one figure above rests on a manually entered exchange rate. */
-    val mixedCurrency: Boolean,
     val hasAnyTransactions: Boolean,
 ) {
     val todaySpent: Money get() = Money(todaySpentMinor, baseCurrency.code)
@@ -190,7 +188,6 @@ class GetDashboardSummaryUseCase(
         var previousToDate = 0L
         var averageWindowExpense = 0L
         var earliest: LocalDate? = null
-        var mixed = false
 
         val byCategory = HashMap<String, Long>()
         val byDay = HashMap<LocalDate, Long>()
@@ -205,7 +202,6 @@ class GetDashboardSummaryUseCase(
             val isThisMonth = recordMonth == month
             val inBase = table.toBase(record.money).amountMinor
 
-            if (isThisMonth && record.currencyCode != base.code) mixed = true
 
             if (record.type.isIncome) {
                 if (isThisMonth) income += inBase
@@ -244,7 +240,6 @@ class GetDashboardSummaryUseCase(
             totals = TransactionTotals(
                 income = Money(income, base.code),
                 expense = Money(expense, base.code),
-                mixedCurrency = mixed,
                 count = records.count { YearMonth.from(it.date) == month },
             ),
             todaySpentMinor = todaySpent,
@@ -261,7 +256,6 @@ class GetDashboardSummaryUseCase(
             ),
             recent = recent(records, refs, table),
             dailySpend = dailySpend(byDay, windowStart, base.code),
-            mixedCurrency = mixed,
             hasAnyTransactions = records.isNotEmpty(),
         )
     }

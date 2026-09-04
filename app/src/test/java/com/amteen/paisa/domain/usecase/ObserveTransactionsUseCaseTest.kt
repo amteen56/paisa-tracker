@@ -45,7 +45,6 @@ class ObserveTransactionsUseCaseTest {
     private val today = LocalDate.of(2026, 9, 15)
 
     private val pkr = Currency("PKR", "Pakistani Rupee", "Rs.", 2, 1.0)
-    private val usd = Currency("USD", "US Dollar", "$", 2, 280.0)
 
     private val food = Category(
         id = "cat-food",
@@ -82,7 +81,7 @@ class ObserveTransactionsUseCaseTest {
             transactions = repository,
             categories = FakeCategoryRepository(listOf(food, transport, salary)),
             paymentMethods = FakePaymentMethodRepository(listOf(cash)),
-            currencies = FakeCurrencyRepository(listOf(pkr, usd)),
+            currencies = FakeCurrencyRepository(listOf(pkr)),
             settings = FakeSettingsRepository(AppSettings(baseCurrencyCode = "PKR")),
             today = { today },
         )
@@ -186,26 +185,30 @@ class ObserveTransactionsUseCaseTest {
     }
 
     @Test
-    fun `the amount filter compares in base currency, not raw numbers`() = runTest {
-        // $50.00 is Rs. 14,000 — far above a Rs. 1,000 floor, even though the raw
-        // number 5000 would sit below a raw 100000.
-        repository.save(transaction("dollars", 5_000, currencyCode = "USD"))
-        repository.save(transaction("rupees", 50_000)) // Rs. 500
+    fun `the amount filter excludes what falls outside the bounds`() = runTest {
+        repository.save(transaction("big", 500_000)) // Rs. 5,000
+        repository.save(transaction("small", 50_000)) // Rs. 500
 
-        val result = run(TransactionQuery(minAmountMinorBase = 100_000)) // Rs. 1,000
-        assertEquals(listOf("dollars"), result.items.map { it.id })
+        assertEquals(
+            listOf("big"),
+            run(TransactionQuery(minAmountMinorBase = 100_000)).items.map { it.id },
+        )
+        assertEquals(
+            listOf("small"),
+            run(TransactionQuery(maxAmountMinorBase = 100_000)).items.map { it.id },
+        )
     }
 
     @Test
-    fun `sorting by amount converts before comparing`() = runTest {
-        repository.save(transaction("small-usd", 1_000, currencyCode = "USD")) // Rs. 2,800
-        repository.save(transaction("big-pkr", 200_000)) // Rs. 2,000
+    fun `sorting by amount runs both ways`() = runTest {
+        repository.save(transaction("smaller", 200_000))
+        repository.save(transaction("bigger", 280_000))
 
         val high = run(TransactionQuery(sort = TransactionSort.AMOUNT_HIGH_FIRST))
-        assertEquals(listOf("small-usd", "big-pkr"), high.items.map { it.id })
+        assertEquals(listOf("bigger", "smaller"), high.items.map { it.id })
 
         val low = run(TransactionQuery(sort = TransactionSort.AMOUNT_LOW_FIRST))
-        assertEquals(listOf("big-pkr", "small-usd"), low.items.map { it.id })
+        assertEquals(listOf("smaller", "bigger"), low.items.map { it.id })
     }
 
     @Test
@@ -224,9 +227,9 @@ class ObserveTransactionsUseCaseTest {
     }
 
     @Test
-    fun `totals convert to base and flag mixed currency`() = runTest {
-        repository.save(transaction("pkr", 200_000)) // Rs. 2,000 expense
-        repository.save(transaction("usd", 1_000, currencyCode = "USD")) // Rs. 2,800 expense
+    fun `totals net income against expense`() = runTest {
+        repository.save(transaction("a", 200_000))
+        repository.save(transaction("b", 280_000))
         repository.save(
             transaction(
                 "income", 1_000_000,
@@ -240,14 +243,7 @@ class ObserveTransactionsUseCaseTest {
         assertEquals(480_000L, totals.expense.amountMinor)
         assertEquals(520_000L, totals.net.amountMinor)
         assertEquals("PKR", totals.net.currencyCode)
-        assertTrue(totals.mixedCurrency)
         assertEquals(3, totals.count)
-    }
-
-    @Test
-    fun `a single-currency period is not flagged as mixed`() = runTest {
-        repository.save(transaction("a", 200_000))
-        assertFalse(run(TransactionQuery()).totals.mixedCurrency)
     }
 
     @Test

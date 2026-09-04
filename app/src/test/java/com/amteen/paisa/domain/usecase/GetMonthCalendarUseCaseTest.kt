@@ -332,9 +332,6 @@ class GetMonthCalendarUseCaseTest {
         assertEquals(520_000L, result.totals.net.amountMinor)
         assertEquals("PKR", result.totals.net.currencyCode)
         assertEquals(3, result.totals.count)
-        // One currency, so nothing is ever converted and nothing is ever disclosed
-        // as converted.
-        assertFalse(result.totals.mixedCurrency)
     }
 
     @Test

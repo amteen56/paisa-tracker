@@ -325,17 +325,6 @@ private fun SummaryCard(state: TransactionHistoryUiState) {
                 }
             }
 
-            if (state.totals.mixedCurrency) {
-                Spacer(Modifier.height(8.dp))
-                // Never present a converted figure as exact — the rates are the
-                // user's own, entered by hand. See CLAUDE.md rule 5.
-                Text(
-                    text = "Includes amounts converted to ${state.baseCurrency.code} " +
-                        "using your manual rates.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
         }
     }
 }
