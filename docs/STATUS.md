@@ -47,7 +47,7 @@ One commit per phase, pushed to `origin/main` as soon as it is made.
 | `e44382d` | Dashboard: rolling ten-day average |
 | `0325c02` | Phase 6: budgets and local alerts |
 | `3721335` | Phase 7: calendar, and the cut to PKR only |
-| _pending_ | Fix the app to PKR: remove every currency option |
+| `52de1ad` | Fix the app to PKR: remove every currency option |
 
 Verify the identity before committing — this repo must **not** be authored by the global work
 account:
