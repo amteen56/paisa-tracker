@@ -16,7 +16,7 @@
 | **4** | Categories, subcategories & payment methods | ✅ **Done — 120 tests green, lint clean** |
 | **5** | Dashboard | ✅ **Done — 151 tests green, lint clean** |
 | **6** | Budgets + local alerts | ✅ **Done — 192 tests green, lint clean** |
-| **7** | Calendar | ✅ **Done — 220 tests green** |
+| **7** | Calendar | ✅ **Done — 225 tests green** |
 | 8 | Reports & charts | ⬜ **Next** |
 | ~~9~~ | ~~Currencies & manual exchange rates~~ | ❌ **Cut — app is PKR-only** |
 | 9 | Import/Export (JSON + CSV) | ⬜ |
@@ -28,7 +28,8 @@ Full phase detail: [PROJECT_PLAN.md](PROJECT_PLAN.md).
 **Multi-currency is cut from the product.** Every amount is PKR. The `Currency` model,
 `CurrencyConverter` and `currencies.json` stay in the codebase so the JSON schema does not need a
 breaking change, but `DefaultData` seeds PKR alone and no screen ever offers a currency choice.
-Trimming the last currency affordances out of the UI is folded into Phase 10 (Polish).
+The last currency affordances are now out of the UI as well — see *Fixing the app to PKR* below —
+so this is enforced by the code, not just by convention.
 
 ---
 
@@ -46,6 +47,7 @@ One commit per phase, pushed to `origin/main` as soon as it is made.
 | `e44382d` | Dashboard: rolling ten-day average |
 | `0325c02` | Phase 6: budgets and local alerts |
 | `3721335` | Phase 7: calendar, and the cut to PKR only |
+| _pending_ | Fix the app to PKR: remove every currency option |
 
 Verify the identity before committing — this repo must **not** be authored by the global work
 account:
@@ -540,6 +542,79 @@ than crashing, since it arrives as a string and may have been through process de
 
 This is the one thing in Phase 7 that reached outside the calendar, and it is a single
 optional parameter with a default, so nothing else changed.
+
+---
+
+## Fixing the app to PKR
+
+Phase 7 removed the calendar's own currency surface. This finished the job across
+every screen, because the app was **not actually PKR-only yet** — it only looked that
+way on a fresh install.
+
+### The bug that made this urgent
+
+Three currency controls were still in the code, each guarded by
+`if (state.currencies.size > 1)`: the code dropdown on the amount field, the currency
+chips in the budget editor, and a currency filter in the history screen. On a fresh
+install the seed writes one currency, the guard is false, and nothing renders — which
+is why this looked finished.
+
+But the pre-cut builds seeded **eight** currencies, and `FileBackedCollection` only
+writes the seed when the file is **missing**. Every install made by one of those
+builds — including the emulator this project has been tested on since Phase 3 — still
+has all eight in `currencies.json`. On those installs the guard is true and all three
+controls come back. The app was one upgrade away from offering a currency picker again.
+
+### What changed
+
+**`CurrencyRepository` is read-only.** `upsert`, `setBaseCurrency`, `archive`,
+`hardDelete` and `replaceAll` are gone from the interface — not deprecated, removed.
+None had a caller outside the implementation. "The app cannot end up with a second
+currency" is now a property of the type rather than a promise about call sites.
+
+**`FileCurrencyRepositoryImpl` normalises on read.** Whatever the file holds, the
+repository exposes exactly one PKR entry, forced to `rateToBase = 1.0` and
+`archived = false`. A legacy eight-currency file collapses; a file where PKR was
+archived or rebased is repaired; a file with no PKR at all falls back to the seed.
+The file itself is left alone — it is harmless, and this app does not rewrite user
+data on read.
+
+**Every currency control is deleted, not guarded.** The amount field shows a fixed
+`Rs.` symbol, the budget editor a fixed prefix, and the history screen has no currency
+filter. `TransactionQuery.currencyCodes`, `AddEditTransactionEvent.CurrencySelected`,
+`BudgetEditEvent.CurrencySelected` and `TransactionHistoryEvent.CurrencyToggled` are
+gone with them. A dropdown that can only ever hold one entry was also a tap on the
+critical path of the one flow that has to stay under ten seconds.
+
+**The converted badge is gone app-wide.** `home_converted_note` had three live render
+sites — the dashboard's month card, its budget rows, and the budgets screen's totals
+and per-budget cards — each behind a `mixedCurrency` flag that can no longer be true.
+`BudgetListUiState.totalsMixedCurrency` went too.
+
+**225 unit tests green** (5 new). The five that matter most are in
+`FileCurrencyRepositoryImplTest`, and they exist specifically to fail if the
+normalisation is ever removed: the legacy eight-currency file must collapse to PKR
+alone, an archived-or-rebased PKR must be repaired, a file with no PKR must fall back
+to the seed, and a corrupt file must still yield a usable currency.
+
+### What deliberately stayed
+
+`Currency`, `CurrencyTable`, `CurrencyConverter` and `currencies.json` all survive, as
+CLAUDE.md requires: `MoneyFormatter` needs somewhere to read the symbol and
+`decimalDigits` from, and the JSON keeps its shape so no schema bump was needed. Sums
+still route through `CurrencyTable.toBase` — an identity conversion now — so a
+hand-edited or imported record carrying a foreign code is normalised rather than
+silently added up as though it were rupees.
+
+`mixedCurrency` remains as a constructor parameter on `TransactionTotals`,
+`DashboardSummary` and `BudgetProgress`, always passed `false`. Removing those fields
+touches five use cases and their tests to delete a value nothing reads; it is worth
+doing, but as its own change rather than folded in here.
+
+One thing to know: if the emulator has non-PKR test transactions recorded during
+earlier phases, their stored `currencyCode` is untouched (this app never rewrites
+historical amounts) and they will now be read at rate 1.0 — so a $10 lunch reads as
+Rs. 10. That is test data from a cut feature; clearing app data resets it cleanly.
 
 ---
 

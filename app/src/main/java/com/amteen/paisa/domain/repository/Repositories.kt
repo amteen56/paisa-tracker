@@ -106,23 +106,24 @@ interface BudgetRepository {
     suspend fun replaceAll(budgets: List<Budget>)
 }
 
+/**
+ * Read-only, and deliberately so: **Paisa is PKR-only.**
+ *
+ * There is no `upsert`, no `setBaseCurrency`, no `archive`, no `hardDelete` and no
+ * `replaceAll`, because there is nothing to add, switch, hide or remove — see
+ * CLAUDE.md, *Single currency*. Removing the writes rather than leaving them unused
+ * is what makes "the app cannot end up with a second currency" a property of the
+ * code instead of a promise about call sites.
+ *
+ * It stays a repository at all only because `Currency` carries the symbol and
+ * `decimalDigits` that `MoneyFormatter` needs, and because `currencies.json` keeps
+ * its shape so the JSON schema never needed a breaking change.
+ */
 interface CurrencyRepository {
+    /** Always exactly one entry: PKR. */
     val currencies: StateFlow<List<Currency>>
 
     suspend fun load()
-
-    suspend fun getByCode(code: String): Currency?
-
-    suspend fun upsert(currency: Currency)
-
-    /** Rebases every rate so [code] becomes 1.0. Transaction amounts are untouched. */
-    suspend fun setBaseCurrency(code: String)
-
-    suspend fun archive(code: String, archived: Boolean = true)
-
-    suspend fun hardDelete(code: String)
-
-    suspend fun replaceAll(currencies: List<Currency>)
 }
 
 interface PaymentMethodRepository {

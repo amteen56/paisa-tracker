@@ -30,9 +30,9 @@ object DefaultData {
      * the shape means the on-disk JSON never needed a breaking change. Do not read that
      * as an invitation to seed a second entry.
      */
-    val currencies: List<Currency> = listOf(
-        Currency("PKR", "Pakistani Rupee", "Rs.", 2, 1.0),
-    )
+    val currency: Currency = Currency(BASE_CURRENCY_CODE, "Pakistani Rupee", "Rs.", 2, 1.0)
+
+    val currencies: List<Currency> = listOf(currency)
 
     val paymentMethods: List<PaymentMethod> = listOf(
         PaymentMethod("pm-cash", "Cash", "cash", 0),

@@ -112,7 +112,6 @@ class BudgetListViewModel(
             archivedVisible = flags.archivedVisible,
             totalLimit = totals?.limit,
             totalSpent = totals?.spent,
-            totalsMixedCurrency = totals?.mixed ?: false,
             baseCurrency = table.base,
             alertsEnabled = inputs.alertsEnabled,
             // Only worth asking once there is something to be alerted about. Asking

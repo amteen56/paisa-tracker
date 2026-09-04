@@ -88,7 +88,6 @@ class AddEditTransactionViewModel(
                     state.copy(
                         isLoading = false,
                         currency = table.base,
-                        currencies = table.active,
                         categories = categoriesFor(state.type),
                         paymentMethods = paymentMethodRepository.paymentMethods.value
                             .filterNot { it.archived },
@@ -115,7 +114,6 @@ class AddEditTransactionViewModel(
                             type = record.type,
                             amountInput = amountToInput(record.amountMinor, details.currency.decimalDigits),
                             currency = details.currency,
-                            currencies = table.active,
                             categories = categoriesFor(record.type, record.categoryId),
                             selectedCategoryId = record.categoryId,
                             selectedSubcategoryId = record.subcategoryId,
@@ -142,11 +140,6 @@ class AddEditTransactionViewModel(
                 it.copy(amountInput = event.input, amountError = null)
             }
 
-            is AddEditTransactionEvent.CurrencySelected -> _uiState.update { state ->
-                val currency = state.currencies.firstOrNull { it.code == event.code }
-                    ?: return@update state
-                state.copy(currency = currency, amountError = null)
-            }
 
             is AddEditTransactionEvent.CategorySelected -> _uiState.update {
                 // Changing category invalidates any subcategory chosen under the old one.

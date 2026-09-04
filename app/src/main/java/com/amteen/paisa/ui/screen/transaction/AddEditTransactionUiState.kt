@@ -24,8 +24,8 @@ data class AddEditTransactionUiState(
     val amountInput: String = "",
     val amountError: String? = null,
 
+    /** Always PKR. Carried on the state because formatting needs its symbol. */
     val currency: Currency = CurrencyTable.fallback("PKR"),
-    val currencies: List<Currency> = emptyList(),
 
     /** Already filtered to those valid for [type]. */
     val categories: List<Category> = emptyList(),
@@ -94,7 +94,6 @@ data class AddEditTransactionUiState(
 sealed interface AddEditTransactionEvent {
     data class TypeChanged(val type: TransactionType) : AddEditTransactionEvent
     data class AmountChanged(val input: String) : AddEditTransactionEvent
-    data class CurrencySelected(val code: String) : AddEditTransactionEvent
     data class CategorySelected(val id: String) : AddEditTransactionEvent
     data class SubcategorySelected(val id: String?) : AddEditTransactionEvent
     data class DescriptionChanged(val text: String) : AddEditTransactionEvent

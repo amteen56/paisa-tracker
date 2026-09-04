@@ -75,7 +75,6 @@ data class TransactionQuery(
     val categoryIds: Set<String> = emptySet(),
     val subcategoryIds: Set<String> = emptySet(),
     val paymentMethodIds: Set<String> = emptySet(),
-    val currencyCodes: Set<String> = emptySet(),
     /** Compared against the amount converted to base, so a mixed list filters sanely. */
     val minAmountMinorBase: Long? = null,
     val maxAmountMinorBase: Long? = null,
@@ -89,7 +88,6 @@ data class TransactionQuery(
             categoryIds.isNotEmpty(),
             subcategoryIds.isNotEmpty(),
             paymentMethodIds.isNotEmpty(),
-            currencyCodes.isNotEmpty(),
             minAmountMinorBase != null,
             maxAmountMinorBase != null,
         ).count { it }

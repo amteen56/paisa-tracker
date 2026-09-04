@@ -69,27 +69,15 @@ class FakePaymentMethodRepository(
     }
 }
 
+/**
+ * Read-only, like the real thing: the app is PKR-only and nothing can add a
+ * currency, so there is nothing here to mutate.
+ */
 class FakeCurrencyRepository(initial: List<Currency> = emptyList()) : CurrencyRepository {
     private val state = MutableStateFlow(initial)
     override val currencies: StateFlow<List<Currency>> = state.asStateFlow()
 
     override suspend fun load() = Unit
-    override suspend fun getByCode(code: String) = state.value.firstOrNull { it.code == code }
-    override suspend fun upsert(currency: Currency) {
-        state.value = state.value.filterNot { it.code == currency.code } + currency
-    }
-    override suspend fun setBaseCurrency(code: String) {
-        state.value = com.amteen.paisa.core.money.CurrencyConverter.rebase(state.value, code)
-    }
-    override suspend fun archive(code: String, archived: Boolean) {
-        state.value = state.value.map { if (it.code == code) it.copy(archived = archived) else it }
-    }
-    override suspend fun hardDelete(code: String) {
-        state.value = state.value.filterNot { it.code == code }
-    }
-    override suspend fun replaceAll(currencies: List<Currency>) {
-        state.value = currencies
-    }
 }
 
 class FakeSettingsRepository(initial: AppSettings = AppSettings()) : SettingsRepository {

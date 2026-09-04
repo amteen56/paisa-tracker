@@ -35,7 +35,6 @@ data class TransactionHistoryUiState(
     /** Reference lists for the filter sheet. */
     val categories: List<Category> = emptyList(),
     val paymentMethods: List<PaymentMethod> = emptyList(),
-    val currencies: List<Currency> = emptyList(),
 
     val searchVisible: Boolean = false,
     val filterSheetVisible: Boolean = false,
@@ -50,7 +49,6 @@ sealed interface TransactionHistoryEvent {
     data class TypeToggled(val type: TransactionType) : TransactionHistoryEvent
     data class CategoryToggled(val id: String) : TransactionHistoryEvent
     data class PaymentMethodToggled(val id: String) : TransactionHistoryEvent
-    data class CurrencyToggled(val code: String) : TransactionHistoryEvent
 
     data object ToggleSearch : TransactionHistoryEvent
     data object OpenFilters : TransactionHistoryEvent
@@ -93,7 +91,6 @@ class TransactionHistoryViewModel(
             baseCurrency = result.currencyTable.base,
             categories = categories.filterNot { it.archived },
             paymentMethods = methods.filterNot { it.archived },
-            currencies = result.currencyTable.active,
             searchVisible = flags.searchVisible,
             filterSheetVisible = flags.filterSheetVisible,
         )
@@ -150,8 +147,6 @@ class TransactionHistoryViewModel(
             is TransactionHistoryEvent.PaymentMethodToggled ->
                 query.update { it.copy(paymentMethodIds = it.paymentMethodIds.toggle(event.id)) }
 
-            is TransactionHistoryEvent.CurrencyToggled ->
-                query.update { it.copy(currencyCodes = it.currencyCodes.toggle(event.code)) }
 
             TransactionHistoryEvent.ToggleSearch -> {
                 val closing = chrome.value.searchVisible

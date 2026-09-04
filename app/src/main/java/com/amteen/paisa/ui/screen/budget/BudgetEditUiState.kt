@@ -24,7 +24,6 @@ data class BudgetEditUiState(
     val limitError: String? = null,
 
     val currency: Currency = CurrencyTable.fallback("PKR"),
-    val currencies: List<Currency> = emptyList(),
 
     val categories: List<Category> = emptyList(),
     val selectedCategoryId: String? = null,
@@ -68,7 +67,6 @@ data class BudgetEditUiState(
 
 sealed interface BudgetEditEvent {
     data class LimitChanged(val input: String) : BudgetEditEvent
-    data class CurrencySelected(val code: String) : BudgetEditEvent
     data class CategorySelected(val id: String) : BudgetEditEvent
     data class SubcategorySelected(val id: String) : BudgetEditEvent
     data class RecurringChanged(val recurring: Boolean) : BudgetEditEvent

@@ -272,7 +272,6 @@ private fun BudgetList(
                     limit = state.totalLimit,
                     spent = state.totalSpent,
                     currency = state.baseCurrency,
-                    mixedCurrency = state.totalsMixedCurrency,
                 )
             }
         }
@@ -334,7 +333,6 @@ private fun TotalsCard(
     limit: Money,
     spent: Money,
     currency: Currency,
-    mixedCurrency: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val colors = MaterialTheme.expenseColors
@@ -363,13 +361,6 @@ private fun TotalsCard(
                 fraction = fraction,
                 color = if (spent > limit) colors.budgetExceeded else colors.budgetNormal,
             )
-            if (mixedCurrency) {
-                Text(
-                    text = stringResource(R.string.home_converted_note),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
         }
     }
 }
@@ -493,13 +484,6 @@ private fun BudgetCard(
                         MaterialTheme.colorScheme.onSurfaceVariant
                     },
                 )
-                if (progress.mixedCurrency) {
-                    Text(
-                        text = stringResource(R.string.home_converted_note),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
             }
         }
     }

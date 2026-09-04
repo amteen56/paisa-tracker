@@ -166,10 +166,6 @@ private fun BudgetForm(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth(),
                 )
-
-                if (state.currencies.size > 1) {
-                    CurrencyChips(state = state, onEvent = onEvent)
-                }
             }
         }
 
@@ -217,21 +213,6 @@ private fun BudgetForm(
             item(key = "history") {
                 HistoryCard(state = state)
             }
-        }
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun CurrencyChips(state: BudgetEditUiState, onEvent: (BudgetEditEvent) -> Unit) {
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        state.currencies.forEach { currency ->
-            FilterChip(
-                selected = currency.code == state.currency.code,
-                onClick = { onEvent(BudgetEditEvent.CurrencySelected(currency.code)) },
-                label = { Text(currency.code) },
-                modifier = Modifier.heightIn(min = 48.dp),
-            )
         }
     }
 }
@@ -442,7 +423,6 @@ private fun previewEditState(): BudgetEditUiState {
         isEditing = true,
         limitInput = "3000.00",
         currency = pkr,
-        currencies = listOf(pkr),
         categories = listOf(
             food,
             Category("cat-transport", "Transport", CategoryScope.EXPENSE, "car", 0xFF3F6BB5.toInt()),

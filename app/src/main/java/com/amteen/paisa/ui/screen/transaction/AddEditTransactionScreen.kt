@@ -154,7 +154,6 @@ fun AddEditTransactionScreen(
                 state = state,
                 focusRequester = amountFocus,
                 onAmountChange = { onEvent(AddEditTransactionEvent.AmountChanged(it)) },
-                onCurrencyChange = { onEvent(AddEditTransactionEvent.CurrencySelected(it)) },
             )
 
             Section(title = "Category") {
@@ -310,52 +309,22 @@ private fun AmountField(
     state: AddEditTransactionUiState,
     focusRequester: FocusRequester,
     onAmountChange: (String) -> Unit,
-    onCurrencyChange: (String) -> Unit,
 ) {
-    var currencyMenuOpen by remember { mutableStateOf(false) }
     val colors = MaterialTheme.expenseColors
     val accent = if (state.type.isIncome) colors.income else colors.expense
 
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            // The app is PKR-only, so this is a plain label rather than a picker: a
-            // dropdown that can only ever hold one entry is a tap on the critical
-            // path for nothing. The branch stays because the state can technically
-            // carry more, and a silent wrong currency would be worse than a menu.
-            if (state.currencies.size > 1) {
-                Box {
-                    TextButton(onClick = { currencyMenuOpen = true }) {
-                        Text(state.currency.code, fontWeight = FontWeight.SemiBold)
-                        Icon(
-                            Icons.Filled.ExpandMore,
-                            contentDescription = "Change currency",
-                            Modifier.size(18.dp),
-                        )
-                    }
-                    DropdownMenu(
-                        expanded = currencyMenuOpen,
-                        onDismissRequest = { currencyMenuOpen = false },
-                    ) {
-                        state.currencies.forEach { currency ->
-                            DropdownMenuItem(
-                                text = { Text("${currency.code} — ${currency.name}") },
-                                onClick = {
-                                    onCurrencyChange(currency.code)
-                                    currencyMenuOpen = false
-                                },
-                            )
-                        }
-                    }
-                }
-            } else {
-                Text(
-                    text = state.currency.symbol,
-                    fontWeight = FontWeight.SemiBold,
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = accent,
-                    modifier = Modifier.padding(end = 8.dp),
-                )
-            }
+            // A fixed symbol, not a picker. The app is PKR-only, and a control that
+            // can only ever hold one value is a tap on the critical path of the one
+            // flow that has to stay under ten seconds.
+            Text(
+                text = state.currency.symbol,
+                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.headlineSmall,
+                color = accent,
+                modifier = Modifier.padding(end = 8.dp),
+            )
 
             OutlinedTextField(
                 value = state.amountInput,
@@ -512,8 +481,7 @@ private fun AddExpenseDarkPreview() {
 private fun previewState() = AddEditTransactionUiState(
     isLoading = false,
     amountInput = "800",
-    currency = com.amteen.paisa.data.seed.DefaultData.currencies.first(),
-    currencies = com.amteen.paisa.data.seed.DefaultData.currencies,
+    currency = com.amteen.paisa.data.seed.DefaultData.currency,
     categories = com.amteen.paisa.data.seed.DefaultData.categories
         .filter { it.applicableTo.allows(TransactionType.EXPENSE) },
     selectedCategoryId = "cat-food",

@@ -1,6 +1,5 @@
 package com.amteen.paisa.data.repository
 
-import com.amteen.paisa.core.money.CurrencyConverter
 import com.amteen.paisa.data.dto.CurrenciesFile
 import com.amteen.paisa.data.file.FilePaths
 import com.amteen.paisa.data.file.JsonFileStore
@@ -11,54 +10,41 @@ import com.amteen.paisa.domain.model.Currency
 import com.amteen.paisa.domain.repository.CurrencyRepository
 import kotlinx.coroutines.flow.StateFlow
 
+/**
+ * `currencies.json`, read-only, and always exactly PKR.
+ *
+ * **The normalisation in [extract] is not belt-and-braces — it is load-bearing.**
+ * Builds before multi-currency was cut seeded eight currencies, and the seed only
+ * runs when the file is *missing*, so every install created by one of those builds
+ * still has all eight on disk. Without collapsing the list on read, those installs
+ * would light up the currency pickers again the moment they upgraded, and the app
+ * would not actually be PKR-only for the people already using it.
+ *
+ * A legacy entry's `rateToBase` is discarded along with it. Under one currency there
+ * is nothing to convert, and keeping a rate table alive would be keeping the cut
+ * feature alive. Amounts stored against a legacy code are read through
+ * `CurrencyTable`'s fallback — see the note on the class.
+ */
 class FileCurrencyRepositoryImpl(store: JsonFileStore) : CurrencyRepository {
 
     private val backing = FileBackedCollection(
         store = store,
         path = FilePaths.CURRENCIES,
         serializer = CurrenciesFile.serializer(),
-        extract = { file -> file.currencies.mapNotNull { it.toDomain() } },
+        // Whatever the file holds, the app has one currency. A file written by an
+        // older build is read, ignored, and left alone rather than rewritten: it is
+        // harmless, and rewriting user data on read is not something this app does.
+        extract = { file ->
+            file.currencies.mapNotNull { it.toDomain() }
+                .firstOrNull { it.code == DefaultData.BASE_CURRENCY_CODE }
+                ?.let { listOf(it.copy(archived = false, rateToBase = 1.0)) }
+                ?: listOf(DefaultData.currency)
+        },
         wrap = { list -> CurrenciesFile(currencies = list.map { it.toDto() }) },
         seed = { DefaultData.currencies },
-        // Base currency first, then alphabetically — the base is the one the user
-        // reaches for most and the anchor every other rate is expressed against.
-        sort = { list -> list.sortedWith(compareByDescending<Currency> { it.isBase }.thenBy { it.code }) },
     )
 
     override val currencies: StateFlow<List<Currency>> = backing.items
 
     override suspend fun load() = backing.load()
-
-    override suspend fun getByCode(code: String): Currency? {
-        backing.ensureLoaded()
-        return backing.current().firstOrNull { it.code == code }
-    }
-
-    override suspend fun upsert(currency: Currency) = backing.mutate { current ->
-        if (current.any { it.code == currency.code }) {
-            current.map { if (it.code == currency.code) currency else it }
-        } else {
-            current + currency
-        }
-    }
-
-    /**
-     * Rebases the whole table so [code] becomes `1.0`, preserving every cross-rate.
-     *
-     * Stored transaction amounts are **not** touched — a purchase of $10 stays $10
-     * forever. See CLAUDE.md rule 5.
-     */
-    override suspend fun setBaseCurrency(code: String) = backing.mutate { current ->
-        CurrencyConverter.rebase(current, code)
-    }
-
-    override suspend fun archive(code: String, archived: Boolean) = backing.mutate { current ->
-        current.map { if (it.code == code) it.copy(archived = archived) else it }
-    }
-
-    override suspend fun hardDelete(code: String) = backing.mutate { current ->
-        current.filterNot { it.code == code }
-    }
-
-    override suspend fun replaceAll(currencies: List<Currency>) = backing.replaceAll(currencies)
 }

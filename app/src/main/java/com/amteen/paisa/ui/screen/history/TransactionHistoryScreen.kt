@@ -449,19 +449,6 @@ private fun FilterSheet(
                 }
             }
 
-            if (state.currencies.size > 1) {
-                FilterGroup("Currency") {
-                    state.currencies.forEach { currency ->
-                        FilterChip(
-                            selected = currency.code in state.query.currencyCodes,
-                            onClick = {
-                                onEvent(TransactionHistoryEvent.CurrencyToggled(currency.code))
-                            },
-                            label = { Text(currency.code) },
-                        )
-                    }
-                }
-            }
         }
     }
 }

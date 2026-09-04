@@ -107,7 +107,6 @@ class ObserveTransactionsUseCase(
         if (query.types.isNotEmpty() && record.type !in query.types) return false
         if (query.categoryIds.isNotEmpty() && record.categoryId !in query.categoryIds) return false
         if (query.subcategoryIds.isNotEmpty() && record.subcategoryId !in query.subcategoryIds) return false
-        if (query.currencyCodes.isNotEmpty() && record.currencyCode !in query.currencyCodes) return false
         if (query.paymentMethodIds.isNotEmpty() &&
             record.paymentMethodId !in query.paymentMethodIds
         ) {

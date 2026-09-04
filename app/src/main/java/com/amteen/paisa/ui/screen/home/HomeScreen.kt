@@ -316,10 +316,6 @@ private fun BalanceCard(summary: DashboardSummary, modifier: Modifier = Modifier
 
             ComparisonLine(summary = summary)
 
-            if (summary.mixedCurrency) {
-                Spacer(Modifier.height(8.dp))
-                ConvertedNote()
-            }
         }
     }
 }
@@ -397,15 +393,6 @@ private fun ComparisonLine(summary: DashboardSummary, modifier: Modifier = Modif
     )
 }
 
-@Composable
-private fun ConvertedNote(modifier: Modifier = Modifier) {
-    Text(
-        text = stringResource(R.string.home_converted_note),
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = modifier,
-    )
-}
 
 // -- Today and daily average ------------------------------------------------
 
@@ -598,7 +585,6 @@ private fun BudgetRow(summary: BudgetSummary, modifier: Modifier = Modifier) {
                 )
             }
 
-            if (progress.mixedCurrency) ConvertedNote()
         }
     }
 }

@@ -67,7 +67,6 @@ class BudgetEditViewModel(
                 state.copy(
                     isLoading = false,
                     isEditing = budget != null,
-                    currencies = table.active,
                     categories = spendableCategories(budget?.categoryId),
                     currency = budget?.let { table.currency(it.currencyCode) } ?: table.base,
                     limitInput = budget?.let {
@@ -121,11 +120,6 @@ class BudgetEditViewModel(
                 it.copy(limitInput = event.input, limitError = null)
             }
 
-            is BudgetEditEvent.CurrencySelected -> _uiState.update { state ->
-                val currency = state.currencies.firstOrNull { it.code == event.code }
-                    ?: return@update state
-                state.copy(currency = currency, limitError = null)
-            }
 
             is BudgetEditEvent.CategorySelected -> _uiState.update {
                 // Changing the category invalidates any subcategory chosen under the

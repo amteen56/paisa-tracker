@@ -21,15 +21,13 @@ data class BudgetListUiState(
     val archivedVisible: Boolean = false,
 
     /**
-     * Totals across every budget, converted into the base currency.
+     * Totals across every budget. `null` when there is nothing to total.
      *
-     * `null` when there is nothing to total. [totalsMixedCurrency] says whether any
-     * budget had to be converted to get here, because a figure resting on the user's
-     * manual rates has to say so — CLAUDE.md rule 5.
+     * A plain sum: every limit is PKR, so there is nothing to convert and nothing to
+     * disclose as converted.
      */
     val totalLimit: Money? = null,
     val totalSpent: Money? = null,
-    val totalsMixedCurrency: Boolean = false,
     val baseCurrency: Currency = CurrencyTable.fallback("PKR"),
 
     val alertsEnabled: Boolean = true,
