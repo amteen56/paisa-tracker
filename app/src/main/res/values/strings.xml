@@ -106,6 +106,10 @@
     </plurals>
     <string name="home_week_title">Last 7 days</string>
     <string name="home_week_empty">Nothing spent in the last 7 days.</string>
+    <!-- Spoken per bar. Distinct from calendar_day_nothing: this window is expenses
+         only, so a quiet day may still have had income recorded against it. -->
+    <string name="home_week_day_none">%1$s. No spending.</string>
+    <string name="home_week_day_action">Open in calendar</string>
     <string name="home_budgets_title">Budgets</string>
     <string name="home_top_categories_title">Where it went</string>
     <string name="home_recent_title">Recent</string>

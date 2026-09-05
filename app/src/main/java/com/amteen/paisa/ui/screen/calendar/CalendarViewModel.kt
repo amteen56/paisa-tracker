@@ -35,10 +35,17 @@ class CalendarViewModel(
     private val paymentMethodRepository: PaymentMethodRepository,
     private val currencyRepository: CurrencyRepository,
     private val settingsRepository: SettingsRepository,
+    initialDate: LocalDate? = null,
 ) : ViewModel() {
 
-    private val month = MutableStateFlow(YearMonth.now())
-    private val selectedDate = MutableStateFlow<LocalDate?>(null)
+    // Arriving with a day already chosen — from Home's seven-day strip — opens the
+    // grid on that day's month rather than on today, which matters most in the first
+    // week of a month, where most of that strip belongs to the month before.
+    private val month = MutableStateFlow(initialDate?.let(YearMonth::from) ?: YearMonth.now())
+
+    // Seeding this is the whole of what an initial date does: the screen already
+    // shows the day sheet whenever a day is selected.
+    private val selectedDate = MutableStateFlow(initialDate)
 
     /** Bumped by Retry, which re-subscribes the whole chain. */
     private val attempt = MutableStateFlow(0)

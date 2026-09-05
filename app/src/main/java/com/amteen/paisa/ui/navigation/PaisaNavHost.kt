@@ -140,6 +140,10 @@ fun PaisaNavHost(
                     onTransactionClick = { navController.navigate(Routes.transactionDetail(it)) },
                     onCategories = { navController.navigate(Routes.CATEGORIES) },
                     onBudgets = { navController.navigate(Routes.BUDGETS) },
+                    // A push, not a tab switch: the calendar is not a top-level
+                    // destination, and back belongs to the dashboard the user
+                    // tapped from.
+                    onDayClick = { navController.navigate(Routes.calendar(it)) },
                 )
             }
             composable(Routes.TRANSACTIONS) {
@@ -361,10 +365,25 @@ fun PaisaNavHost(
                     onBack = navController::popBackStack,
                 )
             }
-            composable(Routes.CALENDAR) {
+            composable(
+                route = Routes.CALENDAR_ROUTE,
+                arguments = listOf(
+                    navArgument(Routes.ARG_DATE) {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                ),
+            ) { entry ->
                 val container = LocalAppContainer.current
+                // An unparseable date opens the calendar on this month with no day
+                // selected, rather than crashing: the argument arrives as a string
+                // and may have been through process death or a future route change.
+                val initialDate = entry.arguments?.getString(Routes.ARG_DATE)?.let { raw ->
+                    runCatching { LocalDate.parse(raw) }.getOrNull()
+                }
                 val viewModel: CalendarViewModel = viewModel(
-                    factory = ViewModelFactories.calendar(container),
+                    factory = ViewModelFactories.calendar(container, initialDate),
                 )
                 val state by viewModel.uiState.collectAsStateWithLifecycle()
 

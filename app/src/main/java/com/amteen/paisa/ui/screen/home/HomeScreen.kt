@@ -43,6 +43,8 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -100,6 +102,7 @@ fun HomeScreen(
     onTransactionClick: (String) -> Unit,
     onCategories: () -> Unit,
     onBudgets: () -> Unit,
+    onDayClick: (LocalDate) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Scaffold(
@@ -153,6 +156,7 @@ fun HomeScreen(
                 onTransactionClick = onTransactionClick,
                 onCategories = onCategories,
                 onBudgets = onBudgets,
+                onDayClick = onDayClick,
                 modifier = content,
             )
         }
@@ -168,6 +172,7 @@ private fun DashboardContent(
     onTransactionClick: (String) -> Unit,
     onCategories: () -> Unit,
     onBudgets: () -> Unit,
+    onDayClick: (LocalDate) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
@@ -191,7 +196,7 @@ private fun DashboardContent(
         }
 
         item(key = "week") {
-            WeekCard(summary = summary)
+            WeekCard(summary = summary, onDayClick = onDayClick)
         }
 
         if (summary.budgets.isNotEmpty()) {
@@ -469,8 +474,21 @@ private fun StatCard(
 
 // -- Seven-day chart --------------------------------------------------------
 
+/**
+ * The last seven days, and the way into the calendar.
+ *
+ * The bars are drawn even when the week is empty. They are the day picker, not just a
+ * chart, and an affordance that disappears exactly when the user has nothing recorded
+ * is missing at the moment they are most likely to be poking at the card. Seven empty
+ * tracks could otherwise read as a loading skeleton, which is what the caption
+ * underneath is for.
+ */
 @Composable
-private fun WeekCard(summary: DashboardSummary, modifier: Modifier = Modifier) {
+private fun WeekCard(
+    summary: DashboardSummary,
+    onDayClick: (LocalDate) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val nothingSpent = summary.dailySpend.all { it.amountMinor == 0L }
 
     Card(modifier = modifier.fillMaxWidth(), colors = cardColors()) {
@@ -480,18 +498,22 @@ private fun WeekCard(summary: DashboardSummary, modifier: Modifier = Modifier) {
         ) {
             Text(
                 text = stringResource(R.string.home_week_title),
+                // Each bar is its own stop for a screen reader now. Marking the title
+                // as a heading is what tells the user those seven stops belong to it.
+                modifier = Modifier.semantics { heading() },
                 style = MaterialTheme.typography.titleSmall,
+            )
+            DailySpendBars(
+                days = summary.dailySpend,
+                currency = summary.baseCurrency,
+                today = summary.today,
+                onDayClick = onDayClick,
             )
             if (nothingSpent) {
                 Text(
                     text = stringResource(R.string.home_week_empty),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            } else {
-                DailySpendBars(
-                    days = summary.dailySpend,
-                    currency = summary.baseCurrency,
                 )
             }
         }
@@ -768,6 +790,7 @@ private fun HomeScreenPreview() {
             onTransactionClick = {},
             onCategories = {},
             onBudgets = {},
+            onDayClick = {},
         )
     }
 }
@@ -785,6 +808,7 @@ private fun HomeScreenDarkPreview() {
             onTransactionClick = {},
             onCategories = {},
             onBudgets = {},
+            onDayClick = {},
         )
     }
 }
@@ -805,6 +829,7 @@ private fun HomeScreenEmptyPreview() {
             onTransactionClick = {},
             onCategories = {},
             onBudgets = {},
+            onDayClick = {},
         )
     }
 }
@@ -822,6 +847,7 @@ private fun HomeScreenErrorPreview() {
             onTransactionClick = {},
             onCategories = {},
             onBudgets = {},
+            onDayClick = {},
         )
     }
 }

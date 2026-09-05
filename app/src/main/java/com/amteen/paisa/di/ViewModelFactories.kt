@@ -143,7 +143,10 @@ object ViewModelFactories {
         }
     }
 
-    fun calendar(container: AppContainer): ViewModelProvider.Factory = viewModelFactory {
+    fun calendar(
+        container: AppContainer,
+        initialDate: LocalDate? = null,
+    ): ViewModelProvider.Factory = viewModelFactory {
         initializer {
             CalendarViewModel(
                 getMonthCalendar = container.getMonthCalendar,
@@ -151,6 +154,7 @@ object ViewModelFactories {
                 paymentMethodRepository = container.paymentMethodRepository,
                 currencyRepository = container.currencyRepository,
                 settingsRepository = container.settingsRepository,
+                initialDate = initialDate,
             )
         }
     }

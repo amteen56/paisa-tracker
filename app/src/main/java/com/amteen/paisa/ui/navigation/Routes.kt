@@ -68,7 +68,22 @@ object Routes {
     fun budgetEdit(id: String? = null) =
         if (id == null) "budgets/edit" else "budgets/edit?id=$id"
 
+    /**
+     * The bare path, with no day preselected. Kept as its own constant because the
+     * More menu navigates by plain string, and because it is what [calendar] returns
+     * when there is no day to open.
+     */
     const val CALENDAR = "calendar"
+
+    /**
+     * Calendar screen. `date` is optional and only used by Home's seven-day strip,
+     * which opens the calendar on the day the user tapped rather than on today.
+     * ISO-8601, so it survives process death as a plain string.
+     */
+    const val CALENDAR_ROUTE = "calendar?date={date}"
+
+    fun calendar(date: LocalDate? = null): String =
+        if (date == null) CALENDAR else "calendar?date=$date"
     // No CURRENCIES / EXCHANGE_RATES route: the app is PKR-only. See CLAUDE.md.
     const val PAYMENT_METHODS = "payment-methods"
 
