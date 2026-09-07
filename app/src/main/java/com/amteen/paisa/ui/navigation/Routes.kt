@@ -68,6 +68,12 @@ object Routes {
     fun budgetEdit(id: String? = null) =
         if (id == null) "budgets/edit" else "budgets/edit?id=$id"
 
+    /** Money lent and borrowed. A separate ledger — never a transaction. */
+    const val LOANS = "loans"
+    const val LOAN_EDIT_ROUTE = "loans/edit?id={id}"
+    fun loanEdit(id: String? = null) =
+        if (id == null) "loans/edit" else "loans/edit?id=$id"
+
     /**
      * The bare path, with no day preselected. Kept as its own constant because the
      * More menu navigates by plain string, and because it is what [calendar] returns

@@ -68,4 +68,34 @@ class RoutesTest {
         assertEquals("transaction/add/income?date=2026-03-09", route)
         assertEquals(date, LocalDate.parse(route.substringAfter("date=")))
     }
+
+    // -- Loans ---------------------------------------------------------------
+
+    @Test
+    fun `loanEdit with no id is exactly the bare path`() {
+        // The FAB navigates with the no-argument builder, and the destination is
+        // registered as the optional-argument pattern. A trailing "?id=" here would
+        // stop the two matching and Add Loan would dead-end.
+        assertEquals("loans/edit", Routes.loanEdit())
+        assertEquals("loans/edit", Routes.loanEdit(null))
+    }
+
+    @Test
+    fun `loanEdit carries the id`() {
+        assertEquals("loans/edit?id=l1", Routes.loanEdit("l1"))
+    }
+
+    @Test
+    fun `the loan edit pattern is a superset of the bare path`() {
+        assertTrue(Routes.LOAN_EDIT_ROUTE.startsWith("loans/edit"))
+        assertEquals("loans/edit?id={id}", Routes.LOAN_EDIT_ROUTE)
+    }
+
+    @Test
+    fun `the loans list route is not shadowed by the edit route`() {
+        // "loans" and "loans/edit" are distinct destinations; if the list route ever
+        // became a prefix match for the editor, tapping a loan would reopen the list.
+        assertEquals("loans", Routes.LOANS)
+        assertTrue(Routes.LOAN_EDIT_ROUTE != Routes.LOANS)
+    }
 }

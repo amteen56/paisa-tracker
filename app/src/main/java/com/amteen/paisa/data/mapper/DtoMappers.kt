@@ -4,7 +4,9 @@ import com.amteen.paisa.data.dto.BudgetAlertDto
 import com.amteen.paisa.data.dto.BudgetDto
 import com.amteen.paisa.data.dto.CategoryDto
 import com.amteen.paisa.data.dto.CurrencyDto
+import com.amteen.paisa.data.dto.LoanDto
 import com.amteen.paisa.data.dto.PaymentMethodDto
+import com.amteen.paisa.data.dto.RepaymentDto
 import com.amteen.paisa.data.dto.SettingsDto
 import com.amteen.paisa.data.dto.SubcategoryDto
 import com.amteen.paisa.data.dto.TransactionDto
@@ -16,7 +18,10 @@ import com.amteen.paisa.domain.model.BudgetAlertThresholds
 import com.amteen.paisa.domain.model.Category
 import com.amteen.paisa.domain.model.CategoryScope
 import com.amteen.paisa.domain.model.Currency
+import com.amteen.paisa.domain.model.Loan
+import com.amteen.paisa.domain.model.LoanDirection
 import com.amteen.paisa.domain.model.PaymentMethod
+import com.amteen.paisa.domain.model.Repayment
 import com.amteen.paisa.domain.model.SortOrder
 import com.amteen.paisa.domain.model.Subcategory
 import com.amteen.paisa.domain.model.ThemeMode
@@ -184,6 +189,76 @@ fun PaymentMethodDto.toDomain(): PaymentMethod? =
     if (id.isBlank()) null else PaymentMethod(id, name, iconKey, sortOrder, archived)
 
 fun PaymentMethod.toDto() = PaymentMethodDto(id, name, iconKey, sortOrder, archived)
+
+// -- Loans ------------------------------------------------------------------
+
+/**
+ * A loan, or null when there is not enough left of it to mean anything.
+ *
+ * A loan with no counterparty is unusable — the whole point of the record is who owes
+ * the money — so it is dropped rather than shown as an anonymous balance the user
+ * cannot act on.
+ */
+fun LoanDto.toDomain(): Loan? {
+    if (id.isBlank() || counterparty.isBlank()) return null
+    val date = parseDate(date) ?: return null
+
+    return Loan(
+        id = id,
+        counterparty = counterparty.trim(),
+        direction = parseEnum(direction, LoanDirection.LENT) { LoanDirection.valueOf(it) },
+        principalMinor = if (principalMinor < 0) 0L else principalMinor,
+        currencyCode = currencyCode.ifBlank { Repayment.CURRENCY },
+        date = date,
+        // A due date that will not parse becomes "no due date" rather than sinking the
+        // loan: the amount and the person are what matter.
+        dueDate = parseDate(dueDate.orEmpty()),
+        note = note,
+        repayments = repayments.mapNotNull { it.toDomain() },
+        sortOrder = sortOrder,
+    )
+}
+
+fun Loan.toDto() = LoanDto(
+    id = id,
+    counterparty = counterparty,
+    direction = direction.name,
+    principalMinor = principalMinor,
+    currencyCode = currencyCode,
+    date = date.toString(),
+    dueDate = dueDate?.toString(),
+    note = note,
+    repayments = repayments.map { it.toDto() },
+    sortOrder = sortOrder,
+)
+
+/**
+ * A repayment, or null.
+ *
+ * Dropped rather than rescued when the id, amount or date is unusable. A repayment
+ * whose amount defaulted to zero would sit in the history claiming nothing came back,
+ * and one with a guessed date would misreport when it did.
+ */
+fun RepaymentDto.toDomain(): Repayment? {
+    if (id.isBlank() || amountMinor <= 0L) return null
+    val parsed = parseDate(date) ?: return null
+
+    return Repayment(
+        id = id,
+        amountMinor = amountMinor,
+        date = parsed,
+        paymentMethodId = paymentMethodId?.takeIf { it.isNotBlank() },
+        note = note,
+    )
+}
+
+fun Repayment.toDto() = RepaymentDto(
+    id = id,
+    amountMinor = amountMinor,
+    date = date.toString(),
+    paymentMethodId = paymentMethodId,
+    note = note,
+)
 
 // -- Settings ---------------------------------------------------------------
 

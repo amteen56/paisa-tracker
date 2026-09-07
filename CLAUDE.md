@@ -119,6 +119,11 @@ Categories, subcategories, and payment methods use an `archived: Boolean`.
   correctly in history and reports.
 - Existing transactions must always remain valid. A transaction must never end up pointing at a
   `categoryId` that no longer resolves.
+- **The reference count must cover every referrer, not just transactions.** A budget names a
+  category; a loan repayment names a payment method. A method used only to settle a loan looks
+  unreferenced from the ledger alone, and deleting it leaves that repayment dangling.
+- Budgets and loans are deliberately *not* on this list. Nothing points at either — usage and
+  outstanding balances are both derived — so a hard delete orphans nothing.
 
 ### 5. Stored amounts are never rewritten
 
@@ -144,6 +149,32 @@ Thresholds: `<75` Normal · `<90` Warning · `<100` Critical · `>=100` Exceeded
 `Validate → Preview → Confirm → Commit`. Build the complete candidate state in memory and
 validate it fully before writing anything. A partially applied import is a bug. Snapshot existing
 data to `backup/` before a Replace.
+
+### 9. Loans are a separate ledger
+
+A loan is **not** a transaction. Lending someone money is not spending it, and recording it as an
+expense would understate what the user is worth by the amount they are owed, distort the category
+breakdown, and eat into a budget the money never belonged to.
+
+- Loans live in `loans.json`, and nothing outside `ui/screen/loan/` and the dashboard's loans card
+  reads them. Never add a loan to a total, a budget, a report or a shard.
+- Repayments are a list on the loan, each with its own date and payment method. Partial repayments
+  are the normal case, so a single "returned on" date is not enough.
+- `isSettled` is **derived** (`repaid >= principal`), never stored — same reason as rule 6.
+- A repayment above the outstanding amount is refused, not clamped. Silently absorbing a typo puts
+  a wrong figure into a record the user will trust.
+
+### 10. The daily average may be filtered; nothing else may be
+
+`AppSettings.averageFilterCategoryIds` narrows **only** `DashboardSummary.dailyAverageMinor`. The
+month's total, the comparison line, today's spend, the week's bars, the breakdown and every budget
+are always the whole month.
+
+- An empty selection means no filter in *both* modes. Reading an emptied `INCLUDE` list literally
+  reports Rs. 0.00, which looks like a bug rather than a filter to fill in.
+- The divisor ignores the filter. Excluding a category says what to count, not which days happened.
+- When a filter is on the tile must say so — an average that no longer divides into the month total
+  with nothing explaining the gap reads as a wrong number.
 
 ---
 
@@ -194,6 +225,14 @@ delegating to `JsonFileStore`, wired in `AppContainer`. Add a file path to `File
 **Bump the schema** — increment `schemaVersion`, add a pure migration function to
 `SchemaMigrations.kt` mapping `n → n+1`, and add a round-trip test with a real old-format fixture.
 Never edit an existing migration; always append.
+
+**Add a whole feature area** — the Loans phase is the worked example, in commit order: domain
+model → `LoanRepository` in `domain/repository/Repositories.kt` → `LoanDto`/`LoansFile` in
+`Dtos.kt` → mappers → `FilePaths.LOANS` → `FileLoanRepositoryImpl` over `FileBackedCollection`
+→ `LoanUseCases.kt` → `AppContainer` (repo, use cases, `load()` in `initialize()`, and the
+backup wiring) → routes, `PaisaNavHost`, `ViewModelFactories`, `MoreScreen` → screens → tests.
+Do not forget `AppSnapshot`, `BackupFile` and the three backup use cases: a new file that a
+restore silently drops is worse than no file.
 
 **Add a chart** — new file in `ui/charts/`, drawn on `Canvas`, driven by a plain data class from a
 use case. It must read correctly in light and dark, animate on data change, and expose a text

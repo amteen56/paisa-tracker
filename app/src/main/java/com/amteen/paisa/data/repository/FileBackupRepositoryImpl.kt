@@ -38,6 +38,7 @@ class FileBackupRepositoryImpl(
             // have to guess what the amounts are denominated in.
             currencies = listOf(DefaultData.currency.toDto()),
             transactions = snapshot.transactions.map { it.toDto() },
+            loans = snapshot.loans.map { it.toDto() },
         )
         return store.json.encodeToString(BackupFile.serializer(), file)
     }
@@ -60,6 +61,7 @@ class FileBackupRepositoryImpl(
             paymentMethods = parsed.paymentMethods.mapNotNull { it.toDomain() },
             budgets = parsed.budgets.mapNotNull { it.toDomain() },
             transactions = transactions,
+            loans = parsed.loans.mapNotNull { it.toDomain() },
             // Reported rather than swallowed: "40 of 43" is useful, a silent 40 is a
             // loss the user never learns about.
             unreadableTransactions = parsed.transactions.size - transactions.size,

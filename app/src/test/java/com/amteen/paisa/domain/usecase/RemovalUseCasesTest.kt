@@ -7,11 +7,15 @@ import com.amteen.paisa.domain.model.AppSettings
 import com.amteen.paisa.domain.model.Budget
 import com.amteen.paisa.domain.model.Category
 import com.amteen.paisa.domain.model.CategoryScope
+import com.amteen.paisa.domain.model.Loan
+import com.amteen.paisa.domain.model.LoanDirection
 import com.amteen.paisa.domain.model.PaymentMethod
+import com.amteen.paisa.domain.model.Repayment
 import com.amteen.paisa.domain.model.Transaction
 import com.amteen.paisa.domain.model.TransactionType
 import com.amteen.paisa.testing.FakeBudgetRepository
 import com.amteen.paisa.testing.FakeCategoryRepository
+import com.amteen.paisa.testing.FakeLoanRepository
 import com.amteen.paisa.testing.FakePaymentMethodRepository
 import com.amteen.paisa.testing.FakeSettingsRepository
 import kotlinx.coroutines.test.runTest
@@ -46,6 +50,7 @@ class RemovalUseCasesTest {
     private lateinit var countCategoryReferences: CountCategoryReferencesUseCase
     private lateinit var deleteCategory: DeleteCategoryUseCase
     private lateinit var archiveCategory: ArchiveCategoryUseCase
+    private lateinit var loans: FakeLoanRepository
     private lateinit var deletePaymentMethod: DeletePaymentMethodUseCase
     private lateinit var archivePaymentMethod: ArchivePaymentMethodUseCase
     private lateinit var setDefaultPaymentMethod: SetDefaultPaymentMethodUseCase
@@ -66,7 +71,9 @@ class RemovalUseCasesTest {
         countCategoryReferences = CountCategoryReferencesUseCase(transactions, budgets)
         deleteCategory = DeleteCategoryUseCase(categories, countCategoryReferences)
         archiveCategory = ArchiveCategoryUseCase(categories)
-        deletePaymentMethod = DeletePaymentMethodUseCase(paymentMethods, transactions, settings)
+        loans = FakeLoanRepository()
+        deletePaymentMethod =
+            DeletePaymentMethodUseCase(paymentMethods, transactions, settings, loans)
         archivePaymentMethod = ArchivePaymentMethodUseCase(paymentMethods, settings)
         setDefaultPaymentMethod = SetDefaultPaymentMethodUseCase(settings)
     }
@@ -276,4 +283,49 @@ class RemovalUseCasesTest {
         iconKey = "restaurant",
         colorArgb = 0xFFEF6C00.toInt(),
     )
+
+    /**
+     * Loans are a separate ledger, so a method used only to settle one looks
+     * unreferenced from the transactions alone — and deleting it would leave that
+     * repayment pointing at an id that resolves to nothing.
+     */
+    @Test
+    fun `a payment method used only by a loan repayment is blocked`() = runTest {
+        loans.upsert(
+            Loan(
+                id = "l1",
+                counterparty = "Ali",
+                direction = LoanDirection.LENT,
+                principalMinor = 500_000,
+                currencyCode = "PKR",
+                date = LocalDate.of(2026, 9, 1),
+                repayments = listOf(
+                    Repayment("r1", 200_000, LocalDate.of(2026, 9, 5), "pm-cash"),
+                ),
+            ),
+        )
+
+        val result = outcome(deletePaymentMethod("pm-cash"))
+
+        assertTrue(result is RemovalOutcome.Blocked)
+        assertEquals(1, (result as RemovalOutcome.Blocked).references.loanRepayments)
+        assertNotNull(paymentMethods.getById("pm-cash"))
+    }
+
+    @Test
+    fun `a repayment with no payment method blocks nothing`() = runTest {
+        loans.upsert(
+            Loan(
+                id = "l1",
+                counterparty = "Ali",
+                direction = LoanDirection.LENT,
+                principalMinor = 500_000,
+                currencyCode = "PKR",
+                date = LocalDate.of(2026, 9, 1),
+                repayments = listOf(Repayment("r1", 200_000, LocalDate.of(2026, 9, 5), null)),
+            ),
+        )
+
+        assertEquals(RemovalOutcome.Deleted, outcome(deletePaymentMethod("pm-cash")))
+    }
 }

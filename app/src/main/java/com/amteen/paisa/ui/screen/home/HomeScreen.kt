@@ -61,6 +61,8 @@ import com.amteen.paisa.domain.model.BudgetStatus
 import com.amteen.paisa.domain.model.Category
 import com.amteen.paisa.domain.model.CategoryScope
 import com.amteen.paisa.domain.model.Currency
+import com.amteen.paisa.domain.model.CurrencyTable
+import com.amteen.paisa.domain.model.LoanDirection
 import com.amteen.paisa.domain.model.Transaction
 import com.amteen.paisa.domain.model.TransactionDetails
 import com.amteen.paisa.domain.model.TransactionTotals
@@ -69,7 +71,10 @@ import com.amteen.paisa.domain.usecase.BudgetSummary
 import com.amteen.paisa.domain.usecase.CategorySpend
 import com.amteen.paisa.domain.usecase.DailySpend
 import com.amteen.paisa.domain.usecase.DashboardSummary
+import com.amteen.paisa.domain.usecase.LoanSlice
+import com.amteen.paisa.domain.usecase.LoanSummary
 import com.amteen.paisa.ui.charts.DailySpendBars
+import com.amteen.paisa.ui.charts.OutstandingLoansChart
 import com.amteen.paisa.ui.charts.ShareBar
 import com.amteen.paisa.ui.components.AmountText
 import com.amteen.paisa.ui.components.EmptyState
@@ -105,6 +110,7 @@ fun HomeScreen(
     onTransactionClick: (String) -> Unit,
     onCategories: () -> Unit,
     onBudgets: () -> Unit,
+    onLoans: () -> Unit,
     onDayClick: (LocalDate) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -153,12 +159,14 @@ fun HomeScreen(
 
             state.summary != null -> DashboardContent(
                 summary = state.summary,
+                loans = state.loans,
                 onAddExpense = onAddExpense,
                 onAddIncome = onAddIncome,
                 onSeeAllTransactions = onSeeAllTransactions,
                 onTransactionClick = onTransactionClick,
                 onCategories = onCategories,
                 onBudgets = onBudgets,
+                onLoans = onLoans,
                 onDayClick = onDayClick,
                 onDailyAverageClick = { onEvent(HomeEvent.DailyAverageClicked) },
                 modifier = content,
@@ -180,12 +188,14 @@ fun HomeScreen(
 @Composable
 private fun DashboardContent(
     summary: DashboardSummary,
+    loans: LoanSummary?,
     onAddExpense: () -> Unit,
     onAddIncome: () -> Unit,
     onSeeAllTransactions: () -> Unit,
     onTransactionClick: (String) -> Unit,
     onCategories: () -> Unit,
     onBudgets: () -> Unit,
+    onLoans: () -> Unit,
     onDayClick: (LocalDate) -> Unit,
     onDailyAverageClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -271,6 +281,12 @@ private fun DashboardContent(
                         }
                     }
                 }
+            }
+        }
+
+        if (loans != null && loans.hasAnyOutstanding) {
+            item(key = "loans") {
+                LoansCard(summary = loans, onClick = onLoans)
             }
         }
 
@@ -742,6 +758,106 @@ private fun CategorySpendRow(
     }
 }
 
+// -- Loans ------------------------------------------------------------------
+
+/**
+ * What is still owed, and the way into the Loans screen.
+ *
+ * Rendered only when something is actually outstanding. A permanent empty card
+ * about a feature the user is not using is clutter on the screen they look at
+ * most, and the ledger is reachable from More either way.
+ *
+ * Sits at the very bottom of the dashboard on purpose. None of this money is in
+ * the user's hands, so it must never read as part of the balance at the top.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LoansCard(
+    summary: LoanSummary,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = MaterialTheme.expenseColors
+    val currency = CurrencyTable.fallback(summary.currencyCode)
+
+    Card(modifier = modifier.fillMaxWidth(), onClick = onClick, colors = cardColors()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(R.string.home_loans_title),
+                    modifier = Modifier.semantics { heading() },
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                if (summary.overdueCount > 0) {
+                    Text(
+                        text = pluralStringResource(
+                            R.plurals.home_loans_overdue,
+                            summary.overdueCount,
+                            summary.overdueCount,
+                        ),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = colors.budgetExceeded,
+                    )
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                if (summary.outstandingLentMinor > 0L) {
+                    LoanTotal(
+                        label = stringResource(R.string.loan_owed_to_you),
+                        amount = MoneyFormatter.format(summary.outstandingLent, currency),
+                        color = colors.income,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                if (summary.outstandingBorrowedMinor > 0L) {
+                    LoanTotal(
+                        label = stringResource(R.string.loan_you_owe),
+                        amount = MoneyFormatter.format(
+                            summary.outstandingBorrowed,
+                            currency,
+                        ),
+                        color = colors.expense,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+
+            OutstandingLoansChart(slices = summary.slices, currency = currency)
+        }
+    }
+}
+
+@Composable
+private fun LoanTotal(
+    label: String,
+    amount: String,
+    color: Color,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.clearAndSetSemantics { contentDescription = "$label, $amount" },
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(text = amount, style = MaterialTheme.typography.titleMedium, color = color)
+    }
+}
+
 // -- Quick actions ----------------------------------------------------------
 
 @Composable
@@ -849,6 +965,7 @@ private fun HomeScreenPreview() {
             onTransactionClick = {},
             onCategories = {},
             onBudgets = {},
+            onLoans = {},
             onDayClick = {},
         )
     }
@@ -867,6 +984,7 @@ private fun HomeScreenDarkPreview() {
             onTransactionClick = {},
             onCategories = {},
             onBudgets = {},
+            onLoans = {},
             onDayClick = {},
         )
     }
@@ -888,6 +1006,7 @@ private fun HomeScreenEmptyPreview() {
             onTransactionClick = {},
             onCategories = {},
             onBudgets = {},
+            onLoans = {},
             onDayClick = {},
         )
     }
@@ -913,6 +1032,40 @@ private fun HomeScreenFilteredAveragePreview() {
             onTransactionClick = {},
             onCategories = {},
             onBudgets = {},
+            onLoans = {},
+            onDayClick = {},
+        )
+    }
+}
+
+@Preview(name = "Dashboard · with loans", showBackground = true, heightDp = 1600)
+@Composable
+private fun HomeScreenLoansPreview() {
+    PaisaTheme {
+        HomeScreen(
+            state = HomeUiState(
+                isLoading = false,
+                summary = previewSummary(),
+                loans = LoanSummary(
+                    outstandingLentMinor = 300_000,
+                    outstandingBorrowedMinor = 150_000,
+                    currencyCode = "PKR",
+                    openCount = 3,
+                    overdueCount = 1,
+                    slices = listOf(
+                        LoanSlice("Ali", LoanDirection.LENT, 300_000, "PKR", 1f),
+                        LoanSlice("Hina", LoanDirection.BORROWED, 150_000, "PKR", 0.5f),
+                    ),
+                ),
+            ),
+            onEvent = {},
+            onAddExpense = {},
+            onAddIncome = {},
+            onSeeAllTransactions = {},
+            onTransactionClick = {},
+            onCategories = {},
+            onBudgets = {},
+            onLoans = {},
             onDayClick = {},
         )
     }
@@ -931,6 +1084,7 @@ private fun HomeScreenErrorPreview() {
             onTransactionClick = {},
             onCategories = {},
             onBudgets = {},
+            onLoans = {},
             onDayClick = {},
         )
     }

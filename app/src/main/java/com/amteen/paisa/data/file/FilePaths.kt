@@ -20,6 +20,12 @@ object FilePaths {
     const val SETTINGS = "settings.json"
 
     /**
+     * Money lent and borrowed. A separate ledger from the transactions, because a loan
+     * is not spending — see `Loan`.
+     */
+    const val LOANS = "loans.json"
+
+    /**
      * Which budget alerts have already been shown. Kept out of `settings.json`
      * because it is a growing log rather than a preference — it gains an entry per
      * budget per threshold per month, and settings is written on every preference

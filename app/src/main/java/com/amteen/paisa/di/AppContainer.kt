@@ -6,6 +6,7 @@ import com.amteen.paisa.data.file.JsonFileStore
 import com.amteen.paisa.data.repository.FileBackupRepositoryImpl
 import com.amteen.paisa.data.repository.FileBudgetAlertStateRepositoryImpl
 import com.amteen.paisa.data.repository.FileBudgetRepositoryImpl
+import com.amteen.paisa.data.repository.FileLoanRepositoryImpl
 import com.amteen.paisa.data.repository.FileCategoryRepositoryImpl
 import com.amteen.paisa.data.repository.FileCurrencyRepositoryImpl
 import com.amteen.paisa.data.repository.FilePaymentMethodRepositoryImpl
@@ -15,6 +16,7 @@ import com.amteen.paisa.data.seed.DefaultData
 import com.amteen.paisa.domain.repository.BackupRepository
 import com.amteen.paisa.domain.repository.BudgetAlertStateRepository
 import com.amteen.paisa.domain.repository.BudgetRepository
+import com.amteen.paisa.domain.repository.LoanRepository
 import com.amteen.paisa.domain.repository.CategoryRepository
 import com.amteen.paisa.domain.repository.CurrencyRepository
 import com.amteen.paisa.domain.repository.PaymentMethodRepository
@@ -25,12 +27,15 @@ import com.amteen.paisa.domain.usecase.ArchiveCategoryUseCase
 import com.amteen.paisa.domain.usecase.ArchivePaymentMethodUseCase
 import com.amteen.paisa.domain.usecase.CountCategoryReferencesUseCase
 import com.amteen.paisa.domain.usecase.DeleteBudgetUseCase
+import com.amteen.paisa.domain.usecase.DeleteLoanUseCase
+import com.amteen.paisa.domain.usecase.DeleteRepaymentUseCase
 import com.amteen.paisa.domain.usecase.DeleteCategoryUseCase
 import com.amteen.paisa.domain.usecase.DeletePaymentMethodUseCase
 import com.amteen.paisa.domain.usecase.DeleteTransactionUseCase
 import com.amteen.paisa.domain.usecase.EvaluateBudgetAlertsUseCase
 import com.amteen.paisa.domain.usecase.GetBudgetHistoryUseCase
 import com.amteen.paisa.domain.usecase.GetBudgetStatusUseCase
+import com.amteen.paisa.domain.usecase.GetLoanSummaryUseCase
 import com.amteen.paisa.domain.usecase.GetDashboardSummaryUseCase
 import com.amteen.paisa.domain.usecase.BuildReportUseCase
 import com.amteen.paisa.domain.usecase.ClearSampleDataUseCase
@@ -41,7 +46,9 @@ import com.amteen.paisa.domain.usecase.ExportCsvUseCase
 import com.amteen.paisa.domain.usecase.PrepareImportUseCase
 import com.amteen.paisa.domain.usecase.WriteLocalBackupUseCase
 import com.amteen.paisa.domain.usecase.GetMonthCalendarUseCase
+import com.amteen.paisa.domain.usecase.RecordRepaymentUseCase
 import com.amteen.paisa.domain.usecase.SaveBudgetUseCase
+import com.amteen.paisa.domain.usecase.SaveLoanUseCase
 import com.amteen.paisa.notification.BudgetAlertNotifier
 import com.amteen.paisa.notification.NotificationChannels
 import com.amteen.paisa.domain.usecase.ReorderBudgetsUseCase
@@ -91,6 +98,7 @@ class AppContainer(context: Context) {
     val categoryRepository: CategoryRepository = FileCategoryRepositoryImpl(fileStore)
     val paymentMethodRepository: PaymentMethodRepository = FilePaymentMethodRepositoryImpl(fileStore)
     val budgetRepository: BudgetRepository = FileBudgetRepositoryImpl(fileStore)
+    val loanRepository: LoanRepository = FileLoanRepositoryImpl(fileStore)
     val budgetAlertStateRepository: BudgetAlertStateRepository =
         FileBudgetAlertStateRepositoryImpl(fileStore)
     val transactionRepository: TransactionRepository = FileTransactionRepositoryImpl(fileStore)
@@ -143,6 +151,8 @@ class AppContainer(context: Context) {
         paymentMethods = paymentMethodRepository,
         transactions = transactionRepository,
         settings = settingsRepository,
+        // A method used only to settle a loan would otherwise look unreferenced.
+        loans = loanRepository,
     )
 
     val archivePaymentMethod = ArchivePaymentMethodUseCase(
@@ -230,6 +240,23 @@ class AppContainer(context: Context) {
         settings = settingsRepository,
     )
 
+    // Loans. A standalone ledger: no transaction, budget or report reads these,
+    // which is why lending someone money never shows up as spending.
+    val saveLoan = SaveLoanUseCase(loanRepository)
+
+    val recordRepayment = RecordRepaymentUseCase(
+        loans = loanRepository,
+        paymentMethods = paymentMethodRepository,
+    )
+
+    val deleteRepayment = DeleteRepaymentUseCase(loanRepository)
+
+    val deleteLoan = DeleteLoanUseCase(loanRepository)
+
+    // Shared by the dashboard card and the Loans screen header, so the two can
+    // never disagree about what is still owed.
+    val getLoanSummary = GetLoanSummaryUseCase(loanRepository)
+
     // Import and export. Validation is a use case rather than a screen concern
     // because "what would this file do" is the half worth testing off-device.
     val exportBackup = ExportBackupUseCase(
@@ -237,6 +264,7 @@ class AppContainer(context: Context) {
         categories = categoryRepository,
         paymentMethods = paymentMethodRepository,
         budgets = budgetRepository,
+        loans = loanRepository,
         settings = settingsRepository,
         backups = backupRepository,
     )
@@ -253,6 +281,7 @@ class AppContainer(context: Context) {
         categories = categoryRepository,
         paymentMethods = paymentMethodRepository,
         budgets = budgetRepository,
+        loans = loanRepository,
         settings = settingsRepository,
         backups = backupRepository,
     )
@@ -262,6 +291,7 @@ class AppContainer(context: Context) {
         categories = categoryRepository,
         paymentMethods = paymentMethodRepository,
         budgets = budgetRepository,
+        loans = loanRepository,
         settings = settingsRepository,
         backups = backupRepository,
         exportBackup = exportBackup,
@@ -331,6 +361,7 @@ class AppContainer(context: Context) {
             paymentMethodRepository.load()
             budgetRepository.load()
             budgetAlertStateRepository.load()
+            loanRepository.load()
 
             if (!settingsRepository.settings.value.initialized) {
                 settingsRepository.update {

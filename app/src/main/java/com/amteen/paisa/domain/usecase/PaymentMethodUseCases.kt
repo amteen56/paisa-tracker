@@ -3,6 +3,7 @@ package com.amteen.paisa.domain.usecase
 import com.amteen.paisa.core.result.AppError
 import com.amteen.paisa.core.result.AppResult
 import com.amteen.paisa.domain.model.PaymentMethod
+import com.amteen.paisa.domain.repository.LoanRepository
 import com.amteen.paisa.domain.repository.PaymentMethodRepository
 import com.amteen.paisa.domain.repository.SettingsRepository
 import com.amteen.paisa.domain.repository.TransactionRepository
@@ -84,18 +85,28 @@ class SavePaymentMethodUseCase(
 /**
  * Removes a payment method only at reference count zero.
  *
- * Budgets do not reference payment methods, so transactions are the only referrer —
- * but settings *does* name one as the default, and a default pointing at something
- * that no longer exists would silently pre-select nothing on the add screen. So the
- * default is cleared as part of the same operation rather than left dangling.
+ * Budgets do not reference payment methods, but transactions and **loan repayments**
+ * both do — a method used only to settle a loan looks unreferenced from the ledger
+ * alone, and deleting it would leave that repayment pointing at nothing.
+ *
+ * Settings also names one as the default, and a default pointing at something that no
+ * longer exists would silently pre-select nothing on the add screen. So the default is
+ * cleared as part of the same operation rather than left dangling.
  */
 class DeletePaymentMethodUseCase(
     private val paymentMethods: PaymentMethodRepository,
     private val transactions: TransactionRepository,
     private val settings: SettingsRepository,
+    private val loans: LoanRepository,
 ) {
     suspend operator fun invoke(id: String): AppResult<RemovalOutcome> = try {
-        val references = ReferenceCount(transactions = transactions.countByPaymentMethod(id))
+        loans.load()
+        val references = ReferenceCount(
+            transactions = transactions.countByPaymentMethod(id),
+            loanRepayments = loans.loans.value.sumOf { loan ->
+                loan.repayments.count { it.paymentMethodId == id }
+            },
+        )
         if (references.isReferenced) {
             AppResult.Ok(RemovalOutcome.Blocked(references))
         } else {

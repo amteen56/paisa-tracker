@@ -102,6 +102,33 @@ data class PaymentMethodDto(
 )
 
 @Serializable
+data class RepaymentDto(
+    val id: String = "",
+    val amountMinor: Long = 0L,
+    /** ISO-8601 `uuuu-MM-dd`. */
+    val date: String = "",
+    val paymentMethodId: String? = null,
+    val note: String = "",
+)
+
+@Serializable
+data class LoanDto(
+    val id: String = "",
+    val counterparty: String = "",
+    /** `LENT` or `BORROWED`. */
+    val direction: String = "LENT",
+    val principalMinor: Long = 0L,
+    val currencyCode: String = "PKR",
+    /** ISO-8601 `uuuu-MM-dd`. */
+    val date: String = "",
+    /** ISO-8601 `uuuu-MM-dd`, or null when the user set no due date. */
+    val dueDate: String? = null,
+    val note: String = "",
+    val repayments: List<RepaymentDto> = emptyList(),
+    val sortOrder: Int = 0,
+)
+
+@Serializable
 data class SettingsDto(
     val baseCurrencyCode: String = "PKR",
     /** `SYSTEM`, `LIGHT` or `DARK`. */
@@ -153,6 +180,12 @@ data class BudgetsFile(
 )
 
 @Serializable
+data class LoansFile(
+    @SerialName(JsonFileStore.KEY_SCHEMA_VERSION) val schemaVersion: Int = V,
+    val loans: List<LoanDto> = emptyList(),
+)
+
+@Serializable
 data class PaymentMethodsFile(
     @SerialName(JsonFileStore.KEY_SCHEMA_VERSION) val schemaVersion: Int = V,
     val paymentMethods: List<PaymentMethodDto> = emptyList(),
@@ -198,4 +231,6 @@ data class BackupFile(
     val budgets: List<BudgetDto> = emptyList(),
     val currencies: List<CurrencyDto> = emptyList(),
     val transactions: List<TransactionDto> = emptyList(),
+    /** Defaulted, so a backup written before loans existed still restores. */
+    val loans: List<LoanDto> = emptyList(),
 )

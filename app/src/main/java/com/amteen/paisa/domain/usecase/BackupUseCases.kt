@@ -6,6 +6,7 @@ import com.amteen.paisa.domain.model.AppSettings
 import com.amteen.paisa.domain.model.AppSnapshot
 import com.amteen.paisa.domain.model.Budget
 import com.amteen.paisa.domain.model.Category
+import com.amteen.paisa.domain.model.Loan
 import com.amteen.paisa.domain.model.CsvRow
 import com.amteen.paisa.domain.model.ImportPlaceholders
 import com.amteen.paisa.domain.model.PaymentMethod
@@ -13,6 +14,7 @@ import com.amteen.paisa.domain.model.Transaction
 import com.amteen.paisa.domain.model.TransactionType
 import com.amteen.paisa.domain.repository.BackupRepository
 import com.amteen.paisa.domain.repository.BudgetRepository
+import com.amteen.paisa.domain.repository.LoanRepository
 import com.amteen.paisa.domain.repository.CategoryRepository
 import com.amteen.paisa.domain.repository.PaymentMethodRepository
 import com.amteen.paisa.domain.repository.SettingsRepository
@@ -50,6 +52,7 @@ data class ImportPreview(
     val incomingCategories: Int,
     val incomingPaymentMethods: Int,
     val incomingBudgets: Int,
+    val incomingLoans: Int,
 
     /**
      * Records already on this device, which a merge skips.
@@ -63,6 +66,7 @@ data class ImportPreview(
     val duplicateCategories: Int,
     val duplicatePaymentMethods: Int,
     val duplicateBudgets: Int,
+    val duplicateLoans: Int,
 
     /** Records the file held but this build could not read. Reported, then dropped. */
     val unreadable: List<String>,
@@ -84,7 +88,7 @@ data class ImportPreview(
 ) {
     val hasAnythingToDo: Boolean
         get() = incomingTransactions > 0 || incomingCategories > 0 ||
-            incomingPaymentMethods > 0 || incomingBudgets > 0
+            incomingPaymentMethods > 0 || incomingBudgets > 0 || incomingLoans > 0
 
     /** Drives the confirmation wording: a Replace destroys, a merge does not. */
     val isDestructive: Boolean get() = mode == ImportMode.REPLACE
@@ -92,7 +96,7 @@ data class ImportPreview(
     /** Anything the file held that this device already has. */
     val totalDuplicates: Int
         get() = duplicateTransactions + duplicateCategories +
-            duplicatePaymentMethods + duplicateBudgets
+            duplicatePaymentMethods + duplicateBudgets + duplicateLoans
 
     /**
      * The file matches what is already here, so a merge would do nothing.
@@ -110,6 +114,7 @@ data class ImportPreview(
         val paymentMethods: List<PaymentMethod>,
         val budgets: List<Budget>,
         val transactions: List<Transaction>,
+        val loans: List<Loan>,
     )
 }
 
@@ -147,6 +152,7 @@ class ExportBackupUseCase(
     private val categories: CategoryRepository,
     private val paymentMethods: PaymentMethodRepository,
     private val budgets: BudgetRepository,
+    private val loans: LoanRepository,
     private val settings: SettingsRepository,
     private val backups: BackupRepository,
     private val now: () -> Instant = { Instant.now() },
@@ -163,6 +169,7 @@ class ExportBackupUseCase(
         categories.load()
         paymentMethods.load()
         budgets.load()
+        loans.load()
 
         return AppSnapshot(
             schemaVersion = backups.schemaVersion,
@@ -172,6 +179,7 @@ class ExportBackupUseCase(
             paymentMethods = paymentMethods.paymentMethods.value,
             budgets = budgets.budgets.value,
             transactions = transactions.getAll(),
+            loans = loans.loans.value,
         )
     }
 }
@@ -237,6 +245,7 @@ class PrepareImportUseCase(
     private val categories: CategoryRepository,
     private val paymentMethods: PaymentMethodRepository,
     private val budgets: BudgetRepository,
+    private val loans: LoanRepository,
     private val settings: SettingsRepository,
     private val backups: BackupRepository,
 ) {
@@ -310,6 +319,7 @@ class PrepareImportUseCase(
         val existingCategories = categories.categories.value
         val existingMethods = paymentMethods.paymentMethods.value
         val existingBudgets = budgets.budgets.value
+        val existingLoans = loans.loans.value
 
         val knownTransactionIds = existingTransactions.map { it.id }.toSet()
         val newTransactions = incoming.filterNot { it.id in knownTransactionIds }
@@ -321,6 +331,9 @@ class PrepareImportUseCase(
         }
         val newBudgets = snapshot.budgets.filterNot { candidate ->
             existingBudgets.any { it.id == candidate.id }
+        }
+        val newLoans = snapshot.loans.filterNot { candidate ->
+            existingLoans.any { it.id == candidate.id }
         }
 
         val replace = mode == ImportMode.REPLACE
@@ -353,12 +366,14 @@ class PrepareImportUseCase(
             incomingCategories = if (replace) snapshot.categories.size else newCategories.size,
             incomingPaymentMethods = if (replace) snapshot.paymentMethods.size else newMethods.size,
             incomingBudgets = if (replace) snapshot.budgets.size else newBudgets.size,
+            incomingLoans = if (replace) snapshot.loans.size else newLoans.size,
             // A Replace takes everything, so nothing is "skipped as a duplicate".
             duplicateTransactions = if (replace) 0 else incoming.size - newTransactions.size,
             duplicateCategories = if (replace) 0 else snapshot.categories.size - newCategories.size,
             duplicatePaymentMethods =
                 if (replace) 0 else snapshot.paymentMethods.size - newMethods.size,
             duplicateBudgets = if (replace) 0 else snapshot.budgets.size - newBudgets.size,
+            duplicateLoans = if (replace) 0 else snapshot.loans.size - newLoans.size,
             unreadable = unreadable,
             repairedReferences = repairs.size,
             replacedTransactions = if (replace) existingTransactions.size else 0,
@@ -372,6 +387,7 @@ class PrepareImportUseCase(
                 paymentMethods = if (replace) snapshot.paymentMethods else existingMethods + newMethods,
                 budgets = if (replace) snapshot.budgets else existingBudgets + newBudgets,
                 transactions = candidateTransactions,
+                loans = if (replace) snapshot.loans else existingLoans + newLoans,
             ),
         )
     }
@@ -484,23 +500,26 @@ class PrepareImportUseCase(
             incomingCategories = createdCategories,
             incomingPaymentMethods = createdMethods,
             incomingBudgets = 0,
+            incomingLoans = 0,
             duplicateTransactions = duplicates,
             // A CSV names categories and methods rather than carrying records, so a
             // name that already exists is a match, not a skipped duplicate.
             duplicateCategories = 0,
             duplicatePaymentMethods = 0,
             duplicateBudgets = 0,
+            duplicateLoans = 0,
             unreadable = unreadable,
             repairedReferences = 0,
             replacedTransactions = if (replace) existingTransactions.size else 0,
             candidate = ImportPreview.Candidate(
-                // A CSV carries no settings and no budgets, so a Replace driven by
-                // one must not wipe either.
+                // A CSV carries no settings, budgets or loans, so a Replace driven
+                // by one must not wipe any of them.
                 settings = null,
                 categories = candidateCategories,
                 paymentMethods = candidateMethods,
                 budgets = budgets.budgets.value,
                 transactions = if (replace) incoming else existingTransactions + incoming,
+                loans = loans.loans.value,
             ),
         )
     }
@@ -528,6 +547,7 @@ class PrepareImportUseCase(
         categories.load()
         paymentMethods.load()
         budgets.load()
+        loans.load()
     }
 }
 
@@ -542,6 +562,7 @@ class CommitImportUseCase(
     private val categories: CategoryRepository,
     private val paymentMethods: PaymentMethodRepository,
     private val budgets: BudgetRepository,
+    private val loans: LoanRepository,
     private val settings: SettingsRepository,
     private val backups: BackupRepository,
     private val exportBackup: ExportBackupUseCase,
@@ -563,6 +584,7 @@ class CommitImportUseCase(
         categories.replaceAll(candidate.categories)
         paymentMethods.replaceAll(candidate.paymentMethods)
         budgets.replaceAll(candidate.budgets)
+        loans.replaceAll(candidate.loans)
         transactions.replaceAll(candidate.transactions)
         candidate.settings?.let { imported -> settings.update { imported } }
 

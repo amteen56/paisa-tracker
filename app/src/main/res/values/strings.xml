@@ -22,6 +22,7 @@
     <string name="title_calendar">Calendar</string>
     <string name="title_payment_methods">Payment Methods</string>
     <string name="title_backup">Import &amp; Export</string>
+    <string name="title_loans">Loans</string>
     <string name="title_settings">Settings</string>
     <string name="title_about">About</string>
 
@@ -156,6 +157,62 @@
         <item quantity="one">1 category only</item>
         <item quantity="other">%1$d categories only</item>
     </plurals>
+
+    <!-- Loans -->
+    <string name="loan_add">Add loan</string>
+    <string name="loan_new_title">New loan</string>
+    <string name="loan_edit_title">Edit loan</string>
+    <string name="loan_direction_lent">I lent</string>
+    <string name="loan_direction_borrowed">I borrowed</string>
+    <string name="loan_direction_label">Which way did the money go?</string>
+    <string name="loan_counterparty_label">Person</string>
+    <string name="loan_counterparty_placeholder">Who is this loan with?</string>
+    <string name="loan_amount_label">Amount</string>
+    <string name="loan_date_label">Date</string>
+    <string name="loan_due_date_label">Due date</string>
+    <string name="loan_due_date_none">No due date</string>
+    <string name="loan_due_date_clear">Clear due date</string>
+    <string name="loan_note_label">Note (optional)</string>
+    <string name="loan_owed_to_you">They owe you</string>
+    <string name="loan_you_owe">You owe</string>
+    <string name="loan_filter_outstanding">Outstanding</string>
+    <string name="loan_filter_settled">Settled</string>
+    <string name="loan_filter_all">All</string>
+    <string name="loan_settled">Settled</string>
+    <string name="loan_overdue">Overdue</string>
+    <string name="loan_due_on">Due %1$s</string>
+    <string name="loan_lent_on">Lent %1$s</string>
+    <string name="loan_borrowed_on">Borrowed %1$s</string>
+    <string name="loan_repaid_of">%1$s of %2$s back</string>
+    <string name="loan_outstanding_amount">%1$s still owed</string>
+    <string name="loan_record_repayment">Record repayment</string>
+    <string name="loan_repayment_title">Record repayment</string>
+    <string name="loan_repayment_amount_label">Amount coming back</string>
+    <string name="loan_repayment_method_label">Paid by</string>
+    <string name="loan_repayment_method_none">Not recorded</string>
+    <string name="loan_repayment_save">Record</string>
+    <string name="loan_repayment_history">Repayments</string>
+    <string name="loan_repayment_history_empty">Nothing has come back yet.</string>
+    <string name="loan_repayment_delete">Remove this repayment</string>
+    <string name="loan_delete_title">Delete this loan?</string>
+    <string name="loan_delete_message">The loan and its repayment history will be removed. Your transactions are not affected.</string>
+    <string name="loan_empty_title">No loans yet</string>
+    <string name="loan_empty_message">Record money you lend or borrow and this screen keeps track of what is still owed. Loans are kept separately and never counted as spending.</string>
+    <string name="loan_empty_action">Record a loan</string>
+    <string name="loan_empty_outstanding_title">Nothing outstanding</string>
+    <string name="loan_empty_outstanding_message">Every loan you have recorded has been paid back.</string>
+    <string name="loan_empty_settled_title">Nothing settled yet</string>
+    <string name="loan_empty_settled_message">Loans move here once they have been paid back in full.</string>
+    <string name="loan_error_title">Could not read your loans</string>
+    <string name="loan_error_hint">Your saved data could not be read. Try again, or restore a backup.</string>
+    <string name="home_loans_title">Outstanding loans</string>
+    <string name="home_loans_open">Open loans</string>
+    <plurals name="home_loans_overdue">
+        <item quantity="one">1 overdue</item>
+        <item quantity="other">%1$d overdue</item>
+    </plurals>
+    <string name="loan_chart_spoken_lent">%1$s owes you %2$s</string>
+    <string name="loan_chart_spoken_borrowed">You owe %1$s %2$s</string>
 
     <!-- Budgets -->
     <string name="budget_add">Add budget</string>

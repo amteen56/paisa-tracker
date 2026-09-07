@@ -21,6 +21,11 @@ data class AppSnapshot(
     val budgets: List<Budget>,
     val transactions: List<Transaction>,
     /**
+     * Money lent and borrowed — a separate ledger from [transactions], and included
+     * here so a restore does not silently lose it.
+     */
+    val loans: List<Loan> = emptyList(),
+    /**
      * Records the file contained but this build could not parse.
      *
      * Reported to the user rather than swallowed: "imported 40 of 43" is useful,

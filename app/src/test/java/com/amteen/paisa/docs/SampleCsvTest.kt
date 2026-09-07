@@ -12,6 +12,7 @@ import com.amteen.paisa.domain.usecase.ImportPreview
 import com.amteen.paisa.domain.usecase.PrepareImportUseCase
 import com.amteen.paisa.testing.FakeBudgetRepository
 import com.amteen.paisa.testing.FakeCategoryRepository
+import com.amteen.paisa.testing.FakeLoanRepository
 import com.amteen.paisa.testing.FakePaymentMethodRepository
 import com.amteen.paisa.testing.FakeSettingsRepository
 import kotlinx.coroutines.test.runTest
@@ -47,13 +48,16 @@ class SampleCsvTest {
         private val methods = FakePaymentMethodRepository(DefaultData.paymentMethods)
         private val budgets = FakeBudgetRepository()
         private val settings = FakeSettingsRepository()
+        private val loans = FakeLoanRepository()
 
         val prepare = PrepareImportUseCase(
-            transactions, categories, methods, budgets, settings, backups,
+            transactions, categories, methods, budgets, loans, settings, backups,
         )
         val commit = CommitImportUseCase(
-            transactions, categories, methods, budgets, settings, backups,
-            ExportBackupUseCase(transactions, categories, methods, budgets, settings, backups),
+            transactions, categories, methods, budgets, loans, settings, backups,
+            ExportBackupUseCase(
+                transactions, categories, methods, budgets, loans, settings, backups,
+            ),
         )
     }
 

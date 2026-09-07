@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Category
+import androidx.compose.material.icons.outlined.Handshake
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Payments
 import androidx.compose.material.icons.outlined.Savings
@@ -55,6 +56,12 @@ private val sections = listOf(
                 "See spending day by day",
                 Icons.Outlined.CalendarMonth,
                 Routes.CALENDAR,
+            ),
+            MoreEntry(
+                R.string.title_loans,
+                "Money you have lent or borrowed",
+                Icons.Outlined.Handshake,
+                Routes.LOANS,
             ),
         ),
     ),

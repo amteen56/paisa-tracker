@@ -5,11 +5,13 @@ import com.amteen.paisa.domain.model.Budget
 import com.amteen.paisa.domain.model.BudgetAlert
 import com.amteen.paisa.domain.model.Category
 import com.amteen.paisa.domain.model.Currency
+import com.amteen.paisa.domain.model.Loan
 import com.amteen.paisa.domain.model.PaymentMethod
 import com.amteen.paisa.domain.repository.BudgetAlertStateRepository
 import com.amteen.paisa.domain.repository.BudgetRepository
 import com.amteen.paisa.domain.repository.CategoryRepository
 import com.amteen.paisa.domain.repository.CurrencyRepository
+import com.amteen.paisa.domain.repository.LoanRepository
 import com.amteen.paisa.domain.repository.PaymentMethodRepository
 import com.amteen.paisa.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -131,5 +133,33 @@ class FakeBudgetRepository(initial: List<Budget> = emptyList()) : BudgetReposito
     }
     override suspend fun replaceAll(budgets: List<Budget>) {
         state.value = budgets
+    }
+}
+
+/**
+ * In-memory loans.
+ *
+ * Insertion order is preserved rather than sorted by date: the real repository sorts
+ * newest-first for the list, and a test that depends on that ordering belongs in
+ * `FileLoanRepositoryImplTest` where the real one is under test.
+ */
+class FakeLoanRepository(initial: List<Loan> = emptyList()) : LoanRepository {
+    private val state = MutableStateFlow(initial)
+    override val loans: StateFlow<List<Loan>> = state.asStateFlow()
+
+    override suspend fun load() = Unit
+    override suspend fun getById(id: String) = state.value.firstOrNull { it.id == id }
+    override suspend fun upsert(loan: Loan) {
+        state.value = if (state.value.any { it.id == loan.id }) {
+            state.value.map { if (it.id == loan.id) loan else it }
+        } else {
+            state.value + loan
+        }
+    }
+    override suspend fun hardDelete(id: String) {
+        state.value = state.value.filterNot { it.id == id }
+    }
+    override suspend fun replaceAll(loans: List<Loan>) {
+        state.value = loans
     }
 }

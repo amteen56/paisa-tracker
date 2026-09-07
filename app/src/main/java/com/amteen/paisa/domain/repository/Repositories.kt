@@ -8,6 +8,7 @@ import com.amteen.paisa.domain.model.Budget
 import com.amteen.paisa.domain.model.BudgetAlert
 import com.amteen.paisa.domain.model.Category
 import com.amteen.paisa.domain.model.Currency
+import com.amteen.paisa.domain.model.Loan
 import com.amteen.paisa.domain.model.PaymentMethod
 import com.amteen.paisa.domain.model.Transaction
 import kotlinx.coroutines.flow.Flow
@@ -109,6 +110,28 @@ interface BudgetRepository {
     suspend fun reorder(orderedIds: List<String>)
 
     suspend fun replaceAll(budgets: List<Budget>)
+}
+
+/**
+ * Money lent to and borrowed from people.
+ *
+ * No `archive`: nothing in the app points at a loan, so deleting one orphans nothing
+ * (CLAUDE.md rule 4 covers the types transactions reference). Settled loans stay in the
+ * list under their own filter rather than being hidden behind an archived flag — a loan
+ * that came back is exactly the record the user wants to be able to find again.
+ */
+interface LoanRepository {
+    val loans: StateFlow<List<Loan>>
+
+    suspend fun load()
+
+    suspend fun getById(id: String): Loan?
+
+    suspend fun upsert(loan: Loan)
+
+    suspend fun hardDelete(id: String)
+
+    suspend fun replaceAll(loans: List<Loan>)
 }
 
 /**

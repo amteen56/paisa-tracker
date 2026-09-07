@@ -8,9 +8,11 @@ import com.amteen.paisa.domain.model.TransactionType
 import com.amteen.paisa.domain.repository.BudgetRepository
 import com.amteen.paisa.domain.repository.CategoryRepository
 import com.amteen.paisa.domain.repository.CurrencyRepository
+import com.amteen.paisa.domain.repository.LoanRepository
 import com.amteen.paisa.domain.repository.PaymentMethodRepository
 import com.amteen.paisa.domain.repository.SettingsRepository
 import com.amteen.paisa.domain.usecase.GetDashboardSummaryUseCase
+import com.amteen.paisa.domain.usecase.GetLoanSummaryUseCase
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -41,6 +43,8 @@ class HomeViewModel(
     private val currencyRepository: CurrencyRepository,
     private val settingsRepository: SettingsRepository,
     private val budgetRepository: BudgetRepository,
+    private val loanRepository: LoanRepository,
+    getLoanSummary: GetLoanSummaryUseCase,
 ) : ViewModel() {
 
     /** Bumped by Retry, which re-subscribes the whole chain. */
@@ -76,6 +80,9 @@ class HomeViewModel(
                 averageFilterCategoryIds = settings.averageFilterCategoryIds.toSet(),
             )
         }
+        .combine(getLoanSummary()) { state, loans ->
+            state.copy(loans = loans)
+        }
         .combine(categoryRepository.categories) { state, categories ->
             state.copy(
                 // Archived categories stay out of the picker but keep counting in the
@@ -98,6 +105,7 @@ class HomeViewModel(
             categoryRepository.load()
             paymentMethodRepository.load()
             budgetRepository.load()
+            loanRepository.load()
         }
     }
 

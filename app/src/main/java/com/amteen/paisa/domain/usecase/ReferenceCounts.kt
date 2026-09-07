@@ -7,15 +7,24 @@ package com.amteen.paisa.domain.usecase
  * an id that no longer resolves, which is the one thing CLAUDE.md rule 4 forbids
  * outright. Counting is therefore a precondition of hard delete, not a nicety.
  *
- * Transactions are not the only referrer — a budget also names a category, and a
- * dangling budget is just as broken as a dangling transaction. Counting only
- * transactions is the easy version of this bug.
+ * Transactions are not the only referrer — a budget also names a category, and a loan
+ * repayment names the payment method the money came back through. A dangling budget or
+ * repayment is just as broken as a dangling transaction. Counting only transactions is
+ * the easy version of this bug.
  */
 data class ReferenceCount(
     val transactions: Int = 0,
     val budgets: Int = 0,
+    /**
+     * Repayments recorded against this payment method.
+     *
+     * Loans are a separate ledger, so a payment method used *only* to settle a loan
+     * looks unreferenced from the transactions alone — and deleting it would leave
+     * that repayment pointing at nothing.
+     */
+    val loanRepayments: Int = 0,
 ) {
-    val total: Int get() = transactions + budgets
+    val total: Int get() = transactions + budgets + loanRepayments
 
     val isReferenced: Boolean get() = total > 0
 
@@ -27,6 +36,7 @@ data class ReferenceCount(
         val parts = buildList {
             if (transactions > 0) add(plural(transactions, "transaction"))
             if (budgets > 0) add(plural(budgets, "budget"))
+            if (loanRepayments > 0) add(plural(loanRepayments, "loan repayment"))
         }
         return when (parts.size) {
             0 -> "nothing"

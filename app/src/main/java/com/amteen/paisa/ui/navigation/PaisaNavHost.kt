@@ -50,6 +50,10 @@ import com.amteen.paisa.ui.screen.history.TransactionHistoryScreen
 import com.amteen.paisa.ui.screen.history.TransactionHistoryViewModel
 import com.amteen.paisa.ui.screen.home.HomeScreen
 import com.amteen.paisa.ui.screen.home.HomeViewModel
+import com.amteen.paisa.ui.screen.loan.LoanEditScreen
+import com.amteen.paisa.ui.screen.loan.LoanEditViewModel
+import com.amteen.paisa.ui.screen.loan.LoanListScreen
+import com.amteen.paisa.ui.screen.loan.LoanListViewModel
 import com.amteen.paisa.ui.screen.more.MoreScreen
 import com.amteen.paisa.ui.screen.paymentmethod.PaymentMethodScreen
 import com.amteen.paisa.ui.screen.paymentmethod.PaymentMethodViewModel
@@ -140,6 +144,7 @@ fun PaisaNavHost(
                     onTransactionClick = { navController.navigate(Routes.transactionDetail(it)) },
                     onCategories = { navController.navigate(Routes.CATEGORIES) },
                     onBudgets = { navController.navigate(Routes.BUDGETS) },
+                    onLoans = { navController.navigate(Routes.LOANS) },
                     // A push, not a tab switch: the calendar is not a top-level
                     // destination, and back belongs to the dashboard the user
                     // tapped from.
@@ -324,6 +329,46 @@ fun PaisaNavHost(
             }
 
             // --- Finance ---------------------------------------------------
+            composable(Routes.LOANS) {
+                val container = LocalAppContainer.current
+                val viewModel: LoanListViewModel = viewModel(
+                    factory = ViewModelFactories.loanList(container),
+                )
+                val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+                LoanListScreen(
+                    state = state,
+                    onEvent = viewModel::onEvent,
+                    onAddLoan = { navController.navigate(Routes.loanEdit()) },
+                    onEditLoan = { navController.navigate(Routes.loanEdit(it)) },
+                    onBack = navController::popBackStack,
+                )
+            }
+            composable(
+                route = Routes.LOAN_EDIT_ROUTE,
+                arguments = listOf(
+                    navArgument(Routes.ARG_ID) {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                ),
+            ) { entry ->
+                val container = LocalAppContainer.current
+                val viewModel: LoanEditViewModel = viewModel(
+                    factory = ViewModelFactories.loanEdit(
+                        container = container,
+                        loanId = entry.arguments?.getString(Routes.ARG_ID),
+                    ),
+                )
+                val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+                LoanEditScreen(
+                    state = state,
+                    onEvent = viewModel::onEvent,
+                    onBack = navController::popBackStack,
+                )
+            }
             composable(Routes.BUDGETS) {
                 val container = LocalAppContainer.current
                 val viewModel: BudgetListViewModel = viewModel(

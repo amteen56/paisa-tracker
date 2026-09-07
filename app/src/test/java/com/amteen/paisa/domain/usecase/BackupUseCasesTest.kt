@@ -9,12 +9,16 @@ import com.amteen.paisa.domain.model.AppSettings
 import com.amteen.paisa.domain.model.Budget
 import com.amteen.paisa.domain.model.Category
 import com.amteen.paisa.domain.model.CategoryScope
+import com.amteen.paisa.domain.model.Loan
+import com.amteen.paisa.domain.model.LoanDirection
 import com.amteen.paisa.domain.model.PaymentMethod
+import com.amteen.paisa.domain.model.Repayment
 import com.amteen.paisa.domain.model.Subcategory
 import com.amteen.paisa.domain.model.Transaction
 import com.amteen.paisa.domain.model.TransactionType
 import com.amteen.paisa.testing.FakeBudgetRepository
 import com.amteen.paisa.testing.FakeCategoryRepository
+import com.amteen.paisa.testing.FakeLoanRepository
 import com.amteen.paisa.testing.FakePaymentMethodRepository
 import com.amteen.paisa.testing.FakeSettingsRepository
 import kotlinx.coroutines.test.runTest
@@ -68,6 +72,19 @@ class BackupUseCasesTest {
         currencyCode = "PKR",
         period = YearMonth.of(2026, 9),
     )
+    private val loan = Loan(
+        id = "l1",
+        counterparty = "Ali",
+        direction = LoanDirection.LENT,
+        principalMinor = 5_000_00,
+        currencyCode = "PKR",
+        date = LocalDate.of(2026, 8, 20),
+        dueDate = LocalDate.of(2026, 9, 20),
+        note = "bike repair",
+        repayments = listOf(
+            Repayment("r1", 2_000_00, LocalDate.of(2026, 9, 1), "pm-cash", "part"),
+        ),
+    )
 
     private lateinit var store: JsonFileStore
     private lateinit var transactions: FileTransactionRepositoryImpl
@@ -75,6 +92,7 @@ class BackupUseCasesTest {
     private lateinit var categories: FakeCategoryRepository
     private lateinit var methods: FakePaymentMethodRepository
     private lateinit var budgets: FakeBudgetRepository
+    private lateinit var loans: FakeLoanRepository
     private lateinit var settings: FakeSettingsRepository
 
     private lateinit var exportBackup: ExportBackupUseCase
@@ -91,16 +109,17 @@ class BackupUseCasesTest {
         methods = FakePaymentMethodRepository(listOf(cash))
         budgets = FakeBudgetRepository(listOf(budget))
         settings = FakeSettingsRepository(AppSettings(baseCurrencyCode = "PKR"))
+        loans = FakeLoanRepository(listOf(loan))
 
         exportBackup = ExportBackupUseCase(
-            transactions, categories, methods, budgets, settings, backups,
+            transactions, categories, methods, budgets, loans, settings, backups,
         ) { exportedAt }
         exportCsv = ExportCsvUseCase(transactions, categories, methods, backups)
         prepare = PrepareImportUseCase(
-            transactions, categories, methods, budgets, settings, backups,
+            transactions, categories, methods, budgets, loans, settings, backups,
         )
         commit = CommitImportUseCase(
-            transactions, categories, methods, budgets, settings, backups, exportBackup,
+            transactions, categories, methods, budgets, loans, settings, backups, exportBackup,
         )
     }
 
@@ -271,7 +290,7 @@ class BackupUseCasesTest {
     }
 
     @Test
-    fun `re-importing your own backup counts duplicates for all four types`() = runTest {
+    fun `re-importing your own backup counts duplicates for every type`() = runTest {
         // Exactly the reported case: export, then Add from backup. Every record in
         // the file is already here, so the merge has nothing to do — and that must
         // read as a match, not as four zeros and a dead button.
@@ -285,6 +304,7 @@ class BackupUseCasesTest {
         assertEquals(0, preview.incomingCategories)
         assertEquals(0, preview.incomingPaymentMethods)
         assertEquals(0, preview.incomingBudgets)
+        assertEquals(0, preview.incomingLoans)
 
         // Before the fix only transactions were counted, so the categories, methods
         // and budgets the file held were silently invisible.
@@ -292,7 +312,8 @@ class BackupUseCasesTest {
         assertEquals(2, preview.duplicateCategories)
         assertEquals(1, preview.duplicatePaymentMethods)
         assertEquals(1, preview.duplicateBudgets)
-        assertEquals(6, preview.totalDuplicates)
+        assertEquals(1, preview.duplicateLoans)
+        assertEquals(7, preview.totalDuplicates)
 
         assertFalse(preview.hasAnythingToDo)
         assertTrue(preview.isAlreadyUpToDate)
@@ -582,4 +603,92 @@ class BackupUseCasesTest {
             transactions = transactions,
         ),
     )
+
+    // -- Loans ---------------------------------------------------------------
+    //
+    // A loan is the one record with nothing behind it to rebuild from — there is no
+    // transaction for it — so a backup that quietly drops loans loses money the user
+    // is owed with no trace of it anywhere.
+
+    @Test
+    fun `a loan and its repayments survive an export and import`() = runTest {
+        val json = (exportBackup() as AppResult.Ok).value
+
+        // Wiped, then restored from the document alone.
+        loans.replaceAll(emptyList())
+        val preview = (prepare.fromJson(json, ImportMode.REPLACE) as AppResult.Ok).value
+        assertTrue(commit(preview).isOk)
+
+        val restored = loans.loans.value.single()
+        assertEquals("Ali", restored.counterparty)
+        assertEquals(LoanDirection.LENT, restored.direction)
+        assertEquals(5_000_00L, restored.principalMinor)
+        assertEquals(LocalDate.of(2026, 8, 20), restored.date)
+        assertEquals(LocalDate.of(2026, 9, 20), restored.dueDate)
+        assertEquals("bike repair", restored.note)
+        assertEquals(2_000_00L, restored.repaidMinor)
+        assertEquals(3_000_00L, restored.outstandingMinor)
+        assertEquals("pm-cash", restored.repayments.single().paymentMethodId)
+    }
+
+    @Test
+    fun `the preview counts incoming loans`() = runTest {
+        val json = (exportBackup() as AppResult.Ok).value
+        loans.replaceAll(emptyList())
+
+        val preview = (prepare.fromJson(json, ImportMode.MERGE) as AppResult.Ok).value
+
+        assertEquals(1, preview.incomingLoans)
+        assertTrue(preview.hasAnythingToDo)
+    }
+
+    @Test
+    fun `re-importing the same backup recognises the loan as a duplicate`() = runTest {
+        val json = (exportBackup() as AppResult.Ok).value
+
+        val preview = (prepare.fromJson(json, ImportMode.MERGE) as AppResult.Ok).value
+
+        assertEquals(0, preview.incomingLoans)
+        assertEquals(1, preview.duplicateLoans)
+    }
+
+    @Test
+    fun `a merge keeps a loan this device already has rather than overwriting it`() = runTest {
+        val json = (exportBackup() as AppResult.Ok).value
+        loans.replaceAll(listOf(loan.copy(counterparty = "Ali Raza")))
+
+        val preview = (prepare.fromJson(json, ImportMode.MERGE) as AppResult.Ok).value
+        assertTrue(commit(preview).isOk)
+
+        // Incoming loses to what is here on a merge, as it does for every other type:
+        // an id collision means the user already has that record.
+        assertEquals("Ali Raza", loans.loans.value.single().counterparty)
+    }
+
+    @Test
+    fun `a CSV import does not wipe the loans`() = runTest {
+        transactions.save(transaction("t1"))
+        val csv = (exportCsv() as AppResult.Ok).value
+
+        // A CSV carries no loans at all, so a Replace driven by one must leave the
+        // ledger alone rather than reading "no loans in the file" as "delete them".
+        val preview = (prepare.fromCsv(csv, ImportMode.REPLACE) as AppResult.Ok).value
+        assertTrue(commit(preview).isOk)
+
+        assertEquals(listOf("l1"), loans.loans.value.map { it.id })
+    }
+
+    @Test
+    fun `a backup written before loans existed restores without inventing any`() = runTest {
+        loans.replaceAll(emptyList())
+        val json = (exportBackup() as AppResult.Ok).value
+        // Exactly what an older build wrote: no "loans" key at all.
+        val older = json.replace(",\"loans\":[]", "")
+
+        val preview = (prepare.fromJson(older, ImportMode.REPLACE) as AppResult.Ok).value
+        assertTrue(commit(preview).isOk)
+
+        assertEquals(0, preview.incomingLoans)
+        assertTrue(loans.loans.value.isEmpty())
+    }
 }

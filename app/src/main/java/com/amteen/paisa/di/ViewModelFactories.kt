@@ -13,6 +13,8 @@ import com.amteen.paisa.ui.screen.category.CategoryEditViewModel
 import com.amteen.paisa.ui.screen.category.CategoryListViewModel
 import com.amteen.paisa.ui.screen.history.TransactionHistoryViewModel
 import com.amteen.paisa.ui.screen.home.HomeViewModel
+import com.amteen.paisa.ui.screen.loan.LoanEditViewModel
+import com.amteen.paisa.ui.screen.loan.LoanListViewModel
 import com.amteen.paisa.ui.screen.paymentmethod.PaymentMethodViewModel
 import com.amteen.paisa.ui.screen.reports.ReportsViewModel
 import com.amteen.paisa.ui.screen.settings.SettingsViewModel
@@ -203,9 +205,40 @@ object ViewModelFactories {
                 currencyRepository = container.currencyRepository,
                 settingsRepository = container.settingsRepository,
                 budgetRepository = container.budgetRepository,
+                loanRepository = container.loanRepository,
+                getLoanSummary = container.getLoanSummary,
             )
         }
     }
+
+    fun loanList(container: AppContainer): ViewModelProvider.Factory = viewModelFactory {
+        initializer {
+            LoanListViewModel(
+                loanRepository = container.loanRepository,
+                paymentMethodRepository = container.paymentMethodRepository,
+                currencyRepository = container.currencyRepository,
+                settingsRepository = container.settingsRepository,
+                getLoanSummary = container.getLoanSummary,
+                recordRepayment = container.recordRepayment,
+                deleteLoan = container.deleteLoan,
+            )
+        }
+    }
+
+    fun loanEdit(container: AppContainer, loanId: String?): ViewModelProvider.Factory =
+        viewModelFactory {
+            initializer {
+                LoanEditViewModel(
+                    loanId = loanId,
+                    loanRepository = container.loanRepository,
+                    paymentMethodRepository = container.paymentMethodRepository,
+                    currencyRepository = container.currencyRepository,
+                    settingsRepository = container.settingsRepository,
+                    saveLoan = container.saveLoan,
+                    deleteRepayment = container.deleteRepayment,
+                )
+            }
+        }
 
     fun transactionHistory(container: AppContainer): ViewModelProvider.Factory = viewModelFactory {
         initializer {

@@ -68,9 +68,12 @@ The app functions identically in airplane mode.
 | 23 | Close and reopen without data loss | ✅ |
 | 24 | Handle corrupt/invalid import files safely | ✅ |
 | 25 | Dark / light / system themes | ✅ |
+| 26 | Choose which categories the daily average counts | ✅ |
+| 27 | Track money lent and borrowed, with partial repayments | ✅ |
 
-*(This table is the project's definition of done. All 23 in-scope criteria are met; 16 and 17 were
-cut when the app was fixed to a single currency.)*
+*(This table is the project's definition of done. All in-scope criteria are met; 16 and 17 were
+cut when the app was fixed to a single currency. 26 and 27 were added after the first release,
+from use.)*
 
 ---
 
@@ -149,9 +152,10 @@ app/src/main/java/com/amteen/paisa/
     result/         AppResult, AppError
 
   domain/
-    model/          Transaction, Category, Budget, Currency, PaymentMethod, AppSettings
+    model/          Transaction, Category, Budget, Loan, Currency, PaymentMethod, AppSettings
     repository/     Repository interfaces (no Android or file types in the signatures)
     usecase/        SaveTransaction, GetDashboardSummary, GetBudgetStatus, BuildReport,
+                    SaveLoan, RecordRepayment, GetLoanSummary,
                     ExportJson, ImportJson, ExportCsv, ImportCsv, SeedSampleData, ...
 
   data/
@@ -170,9 +174,10 @@ app/src/main/java/com/amteen/paisa/
     theme/          Material 3 colors, typography, shapes
     navigation/     Routes, NavHost, bottom bar
     components/     Shared composables
-    charts/         DonutChart, BarChart, LineChart — hand-drawn on Compose Canvas
-    screen/         home, transaction, history, calendar, budget, reports,
-                    category, currency, paymentmethod, settings, backup
+    charts/         DonutChart, DailySpendBars, PeriodCharts, LoanChart — hand-drawn
+                    on Compose Canvas
+    screen/         home, transaction, history, calendar, budget, loan, reports,
+                    category, paymentmethod, more, settings, backup, about
 ```
 
 ### Architecture
@@ -242,6 +247,7 @@ and the data is removed cleanly if the app is uninstalled.
         2026-09.json
     categories.json
     budgets.json
+    loans.json
     currencies.json
     paymentmethods.json
     settings.json
@@ -370,6 +376,45 @@ once per threshold per period, require no server, and can be turned off in Setti
 
 ---
 
+## Loans
+
+Money lent to and borrowed from people, in **More → Loans**. A card at the bottom of the dashboard
+shows what is still outstanding and taps through to the screen.
+
+**A loan is not a transaction.** Handing a friend Rs. 5,000 is not spending it, and recording it as
+an expense would understate what the user is actually worth by the amount they are owed, distort
+every category breakdown, and eat into a budget the money never belonged to. So loans live in their
+own `loans.json` and never appear in a total, a budget, a report or a chart outside their own
+screen. They answer the one question the ledger cannot: who still owes what.
+
+```
+repaid       = Σ repayment.amountMinor
+outstanding  = max(0, principalMinor - repaid)
+settled      = repaid >= principalMinor
+```
+
+- **Partial repayments are the normal case.** A loan holds a list of them, each with its own date
+  and payment method, and the outstanding figure follows. Recording a repayment prefills the
+  outstanding amount, so "they paid it all back" is one tap.
+- **Settlement is derived, never stored** (rule 6). A loan settles itself once the repayments add
+  up to the principal — there is nothing to mark, and no flag that can disagree with the history.
+- A repayment larger than what is outstanding is **refused, not clamped**: someone typing 50,000
+  for a 5,000 loan has made a typo, and quietly taking the part that fits buries it in a record
+  they will later trust. A mistyped repayment is removed from the loan's history instead.
+- Editing a loan never touches its repayments, and the amount cannot be dropped below what has
+  already come back.
+- A payment method used only to settle a loan **counts as a reference**, so it cannot be hard
+  deleted — otherwise that repayment would point at an id that resolves to nothing (rule 4).
+- A due date is optional and never enforced; it only marks a loan overdue, in words as well as
+  colour. Due *today* is not late.
+- Loans have no `archived` flag. Nothing points at a loan, so a hard delete orphans nothing, and
+  settled loans stay in the list under their own filter — a loan that came back is exactly the
+  record people want to be able to find again.
+- Loans are included in the JSON backup and in an import's all-or-nothing commit. A CSV carries
+  none, so a Replace driven by a CSV leaves the ledger alone.
+
+---
+
 ## JSON backup format
 
 The full backup is the primary export format and is versioned so future releases can migrate old
@@ -380,6 +425,22 @@ files.
   "schemaVersion": 1,
   "appVersion": "1.0.0",
   "exportedAt": "2026-09-02T14:32:10Z",
+  "loans": [
+    {
+      "id": "l1",
+      "counterparty": "Ali",
+      "direction": "LENT",
+      "principalMinor": 500000,
+      "currencyCode": "PKR",
+      "date": "2026-08-20",
+      "dueDate": "2026-09-20",
+      "note": "bike repair",
+      "repayments": [
+        { "id": "r1", "amountMinor": 200000, "date": "2026-09-01", "paymentMethodId": "pm-cash", "note": "" }
+      ],
+      "sortOrder": 0
+    }
+  ],
   "settings": {
     "baseCurrencyCode": "PKR",
     "themeMode": "SYSTEM",
