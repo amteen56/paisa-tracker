@@ -114,6 +114,10 @@ data class SettingsDto(
     val budgetAlertsEnabled: Boolean = true,
     val autoBackupEnabled: Boolean = true,
     val backupsToKeep: Int = 5,
+    /** `EXCLUDE` or `INCLUDE` — how `averageFilterCategoryIds` is read. */
+    val averageFilterMode: String = "EXCLUDE",
+    /** Main category ids narrowing the dashboard's daily average. Empty means no filter. */
+    val averageFilterCategoryIds: List<String> = emptyList(),
     val initialized: Boolean = false,
 )
 

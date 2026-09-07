@@ -136,6 +136,27 @@
     <string name="action_add_income">Add income</string>
     <string name="action_retry">Try again</string>
 
+    <!-- Daily average filter -->
+    <string name="home_daily_average_action">Adjust which categories count</string>
+    <string name="average_filter_title">Daily average</string>
+    <string name="average_filter_mode_label">Selected categories are</string>
+    <string name="average_filter_mode_exclude">Left out</string>
+    <string name="average_filter_mode_include">All that counts</string>
+    <string name="average_filter_hint_exclude">Rent, bills and other one-off payments distort a daily figure. Leave them out and the average reflects an ordinary day.</string>
+    <string name="average_filter_hint_include">Only the categories you tick are counted.</string>
+    <string name="average_filter_none">Every category counts. Tick one to narrow the average.</string>
+    <string name="average_filter_no_categories">You have no expense categories yet, so there is nothing to filter.</string>
+    <string name="average_filter_clear">Every category</string>
+    <string name="average_filter_done">Done</string>
+    <plurals name="average_filter_caption_exclude">
+        <item quantity="one">1 category left out</item>
+        <item quantity="other">%1$d categories left out</item>
+    </plurals>
+    <plurals name="average_filter_caption_include">
+        <item quantity="one">1 category only</item>
+        <item quantity="other">%1$d categories only</item>
+    </plurals>
+
     <!-- Budgets -->
     <string name="budget_add">Add budget</string>
     <string name="budget_edit_title">Edit budget</string>

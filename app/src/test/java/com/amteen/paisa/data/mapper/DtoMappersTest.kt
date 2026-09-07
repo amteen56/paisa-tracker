@@ -8,6 +8,7 @@ import com.amteen.paisa.data.dto.SettingsDto
 import com.amteen.paisa.data.dto.SubcategoryDto
 import com.amteen.paisa.data.dto.TransactionDto
 import com.amteen.paisa.domain.model.AppSettings
+import com.amteen.paisa.domain.model.AverageFilterMode
 import com.amteen.paisa.domain.model.Budget
 import com.amteen.paisa.domain.model.Category
 import com.amteen.paisa.domain.model.CategoryScope
@@ -261,6 +262,8 @@ class DtoMappersTest {
             budgetAlertsEnabled = false,
             autoBackupEnabled = false,
             backupsToKeep = 7,
+            averageFilterMode = AverageFilterMode.INCLUDE,
+            averageFilterCategoryIds = listOf("cat-food", "cat-transport"),
             initialized = true,
         )
 
@@ -290,5 +293,34 @@ class DtoMappersTest {
         assertEquals(1, SettingsDto(backupsToKeep = 0).toDomain().backupsToKeep)
         assertEquals(1, SettingsDto(backupsToKeep = -5).toDomain().backupsToKeep)
         assertEquals(50, SettingsDto(backupsToKeep = 9_999).toDomain().backupsToKeep)
+    }
+
+    @Test
+    fun `a settings file written before the average filter existed still parses`() {
+        // The whole point of defaulting every DTO field: an older file must not need a
+        // migration to keep working.
+        val parsed = SettingsDto(baseCurrencyCode = "PKR").toDomain()
+
+        assertEquals(AverageFilterMode.EXCLUDE, parsed.averageFilterMode)
+        assertEquals(emptyList<String>(), parsed.averageFilterCategoryIds)
+        assertEquals(false, parsed.averageFilterActive)
+    }
+
+    @Test
+    fun `an unreadable average filter mode falls back to leaving categories out`() {
+        val parsed = SettingsDto(averageFilterMode = "SOMETHING_ELSE").toDomain()
+
+        assertEquals(AverageFilterMode.EXCLUDE, parsed.averageFilterMode)
+    }
+
+    @Test
+    fun `blank and duplicated average filter ids are dropped`() {
+        // A hand-edited file could hold either, and a duplicate would make the tile's
+        // "2 categories left out" caption wrong.
+        val parsed = SettingsDto(
+            averageFilterCategoryIds = listOf("cat-food", "", "  ", " cat-food ", "cat-bills"),
+        ).toDomain()
+
+        assertEquals(listOf("cat-food", "cat-bills"), parsed.averageFilterCategoryIds)
     }
 }

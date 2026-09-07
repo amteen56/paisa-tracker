@@ -2,6 +2,9 @@ package com.amteen.paisa.ui.screen.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.amteen.paisa.domain.model.AppSettings
+import com.amteen.paisa.domain.model.AverageFilterMode
+import com.amteen.paisa.domain.model.TransactionType
 import com.amteen.paisa.domain.repository.BudgetRepository
 import com.amteen.paisa.domain.repository.CategoryRepository
 import com.amteen.paisa.domain.repository.CurrencyRepository
@@ -13,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -23,8 +27,12 @@ import kotlinx.coroutines.launch
  * The dashboard.
  *
  * Holds no figures and does no arithmetic: it subscribes to
- * [GetDashboardSummaryUseCase] and forwards what comes back. The only state it owns
- * is the retry counter and a dismissed error.
+ * [GetDashboardSummaryUseCase] and forwards what comes back. The state it owns is the
+ * retry counter and whether the daily-average filter dialog is open.
+ *
+ * The filter's *contents* are settings, not view state, so every toggle goes straight
+ * to [SettingsRepository]. The use case reads the same settings flow, which is what
+ * makes the tile behind the dialog update as the user taps.
  */
 class HomeViewModel(
     getDashboardSummary: GetDashboardSummaryUseCase,
@@ -37,6 +45,8 @@ class HomeViewModel(
 
     /** Bumped by Retry, which re-subscribes the whole chain. */
     private val attempt = MutableStateFlow(0)
+
+    private val averageFilterVisible = MutableStateFlow(false)
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val uiState: StateFlow<HomeUiState> = attempt
@@ -57,6 +67,24 @@ class HomeViewModel(
                     )
                 }
         }
+        .combine(averageFilterVisible) { state, visible ->
+            state.copy(averageFilterVisible = visible)
+        }
+        .combine(settingsRepository.settings) { state, settings ->
+            state.copy(
+                averageFilterMode = settings.averageFilterMode,
+                averageFilterCategoryIds = settings.averageFilterCategoryIds.toSet(),
+            )
+        }
+        .combine(categoryRepository.categories) { state, categories ->
+            state.copy(
+                // Archived categories stay out of the picker but keep counting in the
+                // average if they were already chosen — CLAUDE.md rule 4.
+                averageCategories = categories.filter {
+                    !it.archived && it.applicableTo.allows(TransactionType.EXPENSE)
+                },
+            )
+        }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
@@ -76,6 +104,42 @@ class HomeViewModel(
     fun onEvent(event: HomeEvent) {
         when (event) {
             HomeEvent.Retry -> attempt.update { it + 1 }
+
+            HomeEvent.DailyAverageClicked -> averageFilterVisible.value = true
+            HomeEvent.AverageFilterDismissed -> averageFilterVisible.value = false
+
+            is HomeEvent.AverageFilterModeChanged -> updateSettings {
+                it.copy(averageFilterMode = event.mode)
+            }
+
+            is HomeEvent.AverageFilterCategoryToggled -> updateSettings { settings ->
+                val current = settings.averageFilterCategoryIds
+                settings.copy(
+                    averageFilterCategoryIds = if (event.categoryId in current) {
+                        current - event.categoryId
+                    } else {
+                        current + event.categoryId
+                    },
+                )
+            }
+
+            HomeEvent.AverageFilterCleared -> updateSettings {
+                it.copy(
+                    averageFilterCategoryIds = emptyList(),
+                    averageFilterMode = AverageFilterMode.EXCLUDE,
+                )
+            }
         }
+    }
+
+    /**
+     * A settings write per tap.
+     *
+     * `update` already no-ops on an unchanged value and is a single atomic file write
+     * otherwise, so there is nothing to debounce — and a choice that survives the user
+     * killing the app mid-dialog is worth one small write.
+     */
+    private fun updateSettings(transform: (AppSettings) -> AppSettings) {
+        viewModelScope.launch { settingsRepository.update(transform) }
     }
 }

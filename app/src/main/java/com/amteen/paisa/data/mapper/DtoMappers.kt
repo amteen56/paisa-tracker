@@ -9,6 +9,7 @@ import com.amteen.paisa.data.dto.SettingsDto
 import com.amteen.paisa.data.dto.SubcategoryDto
 import com.amteen.paisa.data.dto.TransactionDto
 import com.amteen.paisa.domain.model.AppSettings
+import com.amteen.paisa.domain.model.AverageFilterMode
 import com.amteen.paisa.domain.model.Budget
 import com.amteen.paisa.domain.model.BudgetAlert
 import com.amteen.paisa.domain.model.BudgetAlertThresholds
@@ -195,6 +196,13 @@ fun SettingsDto.toDomain() = AppSettings(
     budgetAlertsEnabled = budgetAlertsEnabled,
     autoBackupEnabled = autoBackupEnabled,
     backupsToKeep = backupsToKeep.coerceIn(1, 50),
+    averageFilterMode = parseEnum(averageFilterMode, AverageFilterMode.EXCLUDE) {
+        AverageFilterMode.valueOf(it)
+    },
+    averageFilterCategoryIds = averageFilterCategoryIds
+        .map { it.trim() }
+        .filter { it.isNotEmpty() }
+        .distinct(),
     initialized = initialized,
 )
 
@@ -207,6 +215,8 @@ fun AppSettings.toDto() = SettingsDto(
     budgetAlertsEnabled = budgetAlertsEnabled,
     autoBackupEnabled = autoBackupEnabled,
     backupsToKeep = backupsToKeep,
+    averageFilterMode = averageFilterMode.name,
+    averageFilterCategoryIds = averageFilterCategoryIds,
     initialized = initialized,
 )
 

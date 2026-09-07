@@ -3,6 +3,7 @@ package com.amteen.paisa.domain.usecase
 import com.amteen.paisa.data.file.JsonFileStore
 import com.amteen.paisa.data.repository.FileTransactionRepositoryImpl
 import com.amteen.paisa.domain.model.AppSettings
+import com.amteen.paisa.domain.model.AverageFilterMode
 import com.amteen.paisa.domain.model.Budget
 import com.amteen.paisa.domain.model.Category
 import com.amteen.paisa.domain.model.CategoryScope
@@ -83,6 +84,8 @@ class GetDashboardSummaryUseCaseTest {
     private fun useCase(
         baseCurrency: String = "PKR",
         on: LocalDate = today,
+        averageFilterMode: AverageFilterMode = AverageFilterMode.EXCLUDE,
+        averageFilterCategoryIds: List<String> = emptyList(),
     ) = GetDashboardSummaryUseCase(
         transactions = repository,
         categories = FakeCategoryRepository(listOf(food, transport, salary)),
@@ -90,13 +93,23 @@ class GetDashboardSummaryUseCaseTest {
             listOf(PaymentMethod("pm-cash", "Cash", "cash")),
         ),
         currencies = FakeCurrencyRepository(listOf(pkr)),
-        settings = FakeSettingsRepository(AppSettings(baseCurrencyCode = baseCurrency)),
+        settings = FakeSettingsRepository(
+            AppSettings(
+                baseCurrencyCode = baseCurrency,
+                averageFilterMode = averageFilterMode,
+                averageFilterCategoryIds = averageFilterCategoryIds,
+            ),
+        ),
         budgets = budgets,
         today = { on },
     )
 
-    private suspend fun summary(baseCurrency: String = "PKR", on: LocalDate = today) =
-        useCase(baseCurrency, on)().first()
+    private suspend fun summary(
+        baseCurrency: String = "PKR",
+        on: LocalDate = today,
+        averageFilterMode: AverageFilterMode = AverageFilterMode.EXCLUDE,
+        averageFilterCategoryIds: List<String> = emptyList(),
+    ) = useCase(baseCurrency, on, averageFilterMode, averageFilterCategoryIds)().first()
 
     private fun transaction(
         id: String,
@@ -253,6 +266,137 @@ class GetDashboardSummaryUseCaseTest {
         )
 
         assertEquals(0L, summary().dailyAverageMinor)
+    }
+
+    // -- The daily average's category filter --------------------------------
+    //
+    // The filter exists because rent and bills swamp a daily figure: what people want
+    // to know is what an ordinary day costs. These tests are the guarantee that it
+    // narrows the average and *only* the average.
+
+    @Test
+    fun `an excluded category is left out of the average`() = runTest {
+        repository.save(transaction("history", 0, date = LocalDate.of(2026, 8, 1)))
+        repository.save(transaction("food", 120_000, categoryId = "cat-food"))
+        repository.save(transaction("lumpy", 600_000, categoryId = "cat-transport"))
+
+        val result = summary(
+            averageFilterMode = AverageFilterMode.EXCLUDE,
+            averageFilterCategoryIds = listOf("cat-transport"),
+        )
+
+        // 120,000 over 12 days, not 720,000.
+        assertEquals(12, result.averageDays)
+        assertEquals(10_000L, result.dailyAverageMinor)
+        assertTrue(result.averageFilterActive)
+        assertEquals(1, result.averageFilterCategoryCount)
+    }
+
+    @Test
+    fun `include mode counts only the categories named`() = runTest {
+        repository.save(transaction("history", 0, date = LocalDate.of(2026, 8, 1)))
+        repository.save(transaction("food", 120_000, categoryId = "cat-food"))
+        repository.save(transaction("transport", 600_000, categoryId = "cat-transport"))
+
+        val result = summary(
+            averageFilterMode = AverageFilterMode.INCLUDE,
+            averageFilterCategoryIds = listOf("cat-food"),
+        )
+
+        assertEquals(10_000L, result.dailyAverageMinor)
+        assertEquals(AverageFilterMode.INCLUDE, result.averageFilterMode)
+    }
+
+    @Test
+    fun `an empty selection means no filter in either mode`() = runTest {
+        repository.save(transaction("history", 0, date = LocalDate.of(2026, 8, 1)))
+        repository.save(transaction("food", 120_000, categoryId = "cat-food"))
+        repository.save(transaction("transport", 600_000, categoryId = "cat-transport"))
+
+        // An INCLUDE list the user emptied must not report Rs. 0.00 — that reads as a
+        // broken figure rather than as a filter waiting to be filled in.
+        val included = summary(averageFilterMode = AverageFilterMode.INCLUDE)
+        val excluded = summary(averageFilterMode = AverageFilterMode.EXCLUDE)
+
+        assertEquals(60_000L, included.dailyAverageMinor)
+        assertEquals(60_000L, excluded.dailyAverageMinor)
+        assertFalse(included.averageFilterActive)
+        assertFalse(excluded.averageFilterActive)
+    }
+
+    @Test
+    fun `the filter moves the average and nothing else on the dashboard`() = runTest {
+        repository.save(transaction("history", 0, date = LocalDate.of(2026, 8, 1)))
+        repository.save(transaction("food", 120_000, categoryId = "cat-food"))
+        repository.save(transaction("transport", 600_000, categoryId = "cat-transport"))
+        repository.save(transaction("prev", 90_000, date = LocalDate.of(2026, 8, 5)))
+
+        val result = summary(averageFilterCategoryIds = listOf("cat-transport"))
+
+        // Every other figure is the whole month, filter or no filter. A filtered
+        // average that quietly rewrote the month's total would be a lie about what
+        // the user spent.
+        assertEquals(720_000L, result.totals.expense.amountMinor)
+        assertEquals(720_000L, result.monthToDateExpenseMinor)
+        assertEquals(720_000L, result.todaySpentMinor)
+        assertEquals(90_000L, result.previousMonthToDateExpenseMinor)
+        assertEquals(720_000L, result.dailySpend.last().amountMinor)
+        assertEquals(2, result.topCategories.size)
+        assertEquals(10_000L, result.dailyAverageMinor)
+    }
+
+    @Test
+    fun `excluding everything reports zero rather than dividing by nothing`() = runTest {
+        repository.save(transaction("history", 0, date = LocalDate.of(2026, 8, 1)))
+        repository.save(transaction("food", 120_000, categoryId = "cat-food"))
+
+        val result = summary(
+            averageFilterCategoryIds = listOf("cat-food", "cat-transport"),
+        )
+
+        // The divisor is days elapsed, not days that had a matching expense — so this
+        // is an honest "you spend nothing per day on what is left", not a crash.
+        assertEquals(12, result.averageDays)
+        assertEquals(0L, result.dailyAverageMinor)
+    }
+
+    @Test
+    fun `the divisor ignores the filter, so excluded days still count as days`() = runTest {
+        // The excluded category is the only thing recorded on the earlier days. If the
+        // filter narrowed the divisor as well, the average would be taken over the one
+        // remaining day and report twelve times the truth.
+        repository.save(
+            transaction("rent", 500_000, date = LocalDate.of(2026, 9, 1), categoryId = "cat-transport"),
+        )
+        repository.save(transaction("food", 120_000, categoryId = "cat-food"))
+
+        val filtered = summary(averageFilterCategoryIds = listOf("cat-transport"))
+        val unfiltered = summary()
+
+        assertEquals(12, filtered.averageDays)
+        assertEquals(12, unfiltered.averageDays)
+        // 120,000 over the same twelve days — not over the single day it landed on.
+        assertEquals(10_000L, filtered.dailyAverageMinor)
+        assertEquals(51_667L, unfiltered.dailyAverageMinor)
+    }
+
+    @Test
+    fun `a filter naming a category the user deleted simply matches nothing`() = runTest {
+        repository.save(transaction("history", 0, date = LocalDate.of(2026, 8, 1)))
+        repository.save(transaction("food", 120_000, categoryId = "cat-food"))
+
+        val result = summary(averageFilterCategoryIds = listOf("cat-long-gone"))
+
+        assertEquals(10_000L, result.dailyAverageMinor)
+    }
+
+    @Test
+    fun `a subcategory follows its parent through the filter`() = runTest {
+        repository.save(transaction("history", 0, date = LocalDate.of(2026, 8, 1)))
+        // Someone excluding "Food" means all of it, fast food included.
+        repository.save(transaction("fast", 120_000, subcategoryId = "sub-fastfood"))
+
+        assertEquals(0L, summary(averageFilterCategoryIds = listOf("cat-food")).dailyAverageMinor)
     }
 
     // -- Month-on-month comparison ------------------------------------------

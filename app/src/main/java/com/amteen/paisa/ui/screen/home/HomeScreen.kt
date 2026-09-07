@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -44,6 +45,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -52,6 +54,7 @@ import com.amteen.paisa.R
 import com.amteen.paisa.core.money.Money
 import com.amteen.paisa.core.money.MoneyFormatter
 import com.amteen.paisa.core.time.DateFormatters
+import com.amteen.paisa.domain.model.AverageFilterMode
 import com.amteen.paisa.domain.model.Budget
 import com.amteen.paisa.domain.model.BudgetProgress
 import com.amteen.paisa.domain.model.BudgetStatus
@@ -157,9 +160,20 @@ fun HomeScreen(
                 onCategories = onCategories,
                 onBudgets = onBudgets,
                 onDayClick = onDayClick,
+                onDailyAverageClick = { onEvent(HomeEvent.DailyAverageClicked) },
                 modifier = content,
             )
         }
+    }
+
+    if (state.averageFilterVisible && state.summary != null) {
+        DailyAverageDialog(
+            summary = state.summary,
+            categories = state.averageCategories,
+            mode = state.averageFilterMode,
+            selected = state.averageFilterCategoryIds,
+            onEvent = onEvent,
+        )
     }
 }
 
@@ -173,6 +187,7 @@ private fun DashboardContent(
     onCategories: () -> Unit,
     onBudgets: () -> Unit,
     onDayClick: (LocalDate) -> Unit,
+    onDailyAverageClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
@@ -192,7 +207,7 @@ private fun DashboardContent(
         }
 
         item(key = "quick-stats") {
-            QuickStatsRow(summary = summary)
+            QuickStatsRow(summary = summary, onDailyAverageClick = onDailyAverageClick)
         }
 
         item(key = "week") {
@@ -402,7 +417,30 @@ private fun ComparisonLine(summary: DashboardSummary, modifier: Modifier = Modif
 // -- Today and daily average ------------------------------------------------
 
 @Composable
-private fun QuickStatsRow(summary: DashboardSummary, modifier: Modifier = Modifier) {
+private fun QuickStatsRow(
+    summary: DashboardSummary,
+    onDailyAverageClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    // When a filter is on, the caption has to say so. An average that no longer divides
+    // into the month's total, with nothing to explain the gap, reads as a wrong number.
+    val averageCaption = if (summary.averageFilterActive) {
+        pluralStringResource(
+            when (summary.averageFilterMode) {
+                AverageFilterMode.INCLUDE -> R.plurals.average_filter_caption_include
+                AverageFilterMode.EXCLUDE -> R.plurals.average_filter_caption_exclude
+            },
+            summary.averageFilterCategoryCount,
+            summary.averageFilterCategoryCount,
+        )
+    } else {
+        pluralStringResource(
+            R.plurals.home_days_in,
+            summary.averageDays,
+            summary.averageDays,
+        )
+    }
+
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -422,16 +460,15 @@ private fun QuickStatsRow(summary: DashboardSummary, modifier: Modifier = Modifi
             label = stringResource(R.string.home_daily_average),
             money = summary.dailyAverage,
             currency = summary.baseCurrency,
-            caption = pluralStringResource(
-                R.plurals.home_days_in,
-                summary.averageDays,
-                summary.averageDays,
-            ),
+            caption = averageCaption,
+            onClick = onDailyAverageClick,
+            clickLabel = stringResource(R.string.home_daily_average_action),
             modifier = Modifier.weight(1f),
         )
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun StatCard(
     label: String,
@@ -439,11 +476,19 @@ private fun StatCard(
     currency: Currency,
     modifier: Modifier = Modifier,
     caption: String? = null,
+    onClick: (() -> Unit)? = null,
+    clickLabel: String? = null,
 ) {
-    Card(modifier = modifier, colors = cardColors()) {
+    // The whole card speaks as one control when it is one. Three separate stops for a
+    // label, an amount and a caption is how the action ends up undiscoverable.
+    val spoken = listOfNotNull(label, MoneyFormatter.format(money, currency), caption)
+        .joinToString(". ")
+
+    val content: @Composable ColumnScope.() -> Unit = {
         Column(
             modifier = Modifier
                 .padding(16.dp)
+                // Already past the 48dp minimum, so the whole card is the target.
                 .heightIn(min = 76.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
@@ -469,6 +514,20 @@ private fun StatCard(
                 )
             }
         }
+    }
+
+    if (onClick == null) {
+        Card(modifier = modifier, colors = cardColors(), content = content)
+    } else {
+        Card(
+            onClick = onClick,
+            modifier = modifier.semantics {
+                contentDescription = spoken
+                if (clickLabel != null) onClick(label = clickLabel, action = null)
+            },
+            colors = cardColors(),
+            content = content,
+        )
     }
 }
 
@@ -834,6 +893,31 @@ private fun HomeScreenEmptyPreview() {
     }
 }
 
+@Preview(name = "Dashboard · filtered average", showBackground = true, heightDp = 700)
+@Composable
+private fun HomeScreenFilteredAveragePreview() {
+    PaisaTheme {
+        HomeScreen(
+            state = HomeUiState(
+                isLoading = false,
+                summary = previewSummary().copy(
+                    dailyAverageMinor = 214_00,
+                    averageFilterActive = true,
+                    averageFilterCategoryCount = 2,
+                ),
+            ),
+            onEvent = {},
+            onAddExpense = {},
+            onAddIncome = {},
+            onSeeAllTransactions = {},
+            onTransactionClick = {},
+            onCategories = {},
+            onBudgets = {},
+            onDayClick = {},
+        )
+    }
+}
+
 @Preview(name = "Dashboard · error", showBackground = true, heightDp = 700)
 @Composable
 private fun HomeScreenErrorPreview() {
@@ -852,7 +936,8 @@ private fun HomeScreenErrorPreview() {
     }
 }
 
-private fun previewSummary(empty: Boolean = false): DashboardSummary {
+/** Shared with [DailyAverageDialog]'s previews, which need the same figures. */
+internal fun previewSummary(empty: Boolean = false): DashboardSummary {
     val pkr = Currency("PKR", "Pakistani Rupee", "Rs.", 2, 1.0)
     val today = LocalDate.of(2026, 9, 12)
     val month = YearMonth.from(today)
@@ -880,6 +965,9 @@ private fun previewSummary(empty: Boolean = false): DashboardSummary {
             totals = TransactionTotals.empty("PKR"),
             todaySpentMinor = 0,
             dailyAverageMinor = 0,
+            averageFilterActive = false,
+            averageFilterCategoryCount = 0,
+            averageFilterMode = AverageFilterMode.EXCLUDE,
             averageDays = 1,
             monthToDateExpenseMinor = 0,
             previousMonthToDateExpenseMinor = 0,
@@ -930,6 +1018,9 @@ private fun previewSummary(empty: Boolean = false): DashboardSummary {
         ),
         todaySpentMinor = 1_150_00,
         dailyAverageMinor = 401_00,
+        averageFilterActive = false,
+        averageFilterCategoryCount = 0,
+        averageFilterMode = AverageFilterMode.EXCLUDE,
         averageDays = 11,
         monthToDateExpenseMinor = 4_411_00,
         previousMonthToDateExpenseMinor = 4_100_00,

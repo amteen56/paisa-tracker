@@ -3,6 +3,7 @@ package com.amteen.paisa.domain.usecase
 import com.amteen.paisa.core.money.Money
 import com.amteen.paisa.core.time.DateRange
 import com.amteen.paisa.domain.model.AppSettings
+import com.amteen.paisa.domain.model.AverageFilterMode
 import com.amteen.paisa.domain.model.Budget
 import com.amteen.paisa.domain.model.Category
 import com.amteen.paisa.domain.model.Currency
@@ -66,7 +67,7 @@ data class DashboardSummary(
 
     /**
      * Average spending per day **this month so far** — this month's expense divided
-     * by the days elapsed.
+     * by the days elapsed, narrowed by the user's category filter if they set one.
      *
      * This replaced a rolling ten-day window. The original objection to month-to-date
      * was that a true monthly average means loading every shard, which is the cost
@@ -78,8 +79,26 @@ data class DashboardSummary(
      * the 30th it is smoothed enough that a change in habit takes a while to surface.
      * That is accepted, because it is the figure people recognise and can check
      * against the month's total themselves.
+     *
+     * When [averageFilterActive] is true this no longer reconciles with
+     * [monthToDateExpenseMinor] by hand, which is exactly why the tile has to say so.
      */
     val dailyAverageMinor: Long,
+
+    /**
+     * Whether a category filter narrowed [dailyAverageMinor].
+     *
+     * Display only. The tile must be able to admit that the figure is not the whole
+     * month's spending divided by the days — an unexplained mismatch with the month
+     * total is worse than no filter at all.
+     */
+    val averageFilterActive: Boolean,
+
+    /** How many categories the filter names. Zero whenever [averageFilterActive] is false. */
+    val averageFilterCategoryCount: Int,
+
+    /** Which way [averageFilterCategoryCount] reads. Display only. */
+    val averageFilterMode: AverageFilterMode,
 
     /**
      * The divisor actually used — days elapsed this month, unless the user has been
@@ -206,7 +225,17 @@ class GetDashboardSummaryUseCase(
          * month's total but must not be divided by the days elapsed so far.
          */
         var monthToDateExpense = 0L
+
+        /**
+         * The same figure with the user's category filter applied — the numerator for
+         * the daily average, and nothing else. Kept separate so a filter can never move
+         * the month's total, the comparison line or the week's bars.
+         */
+        var filteredMonthToDateExpense = 0L
         var earliest: LocalDate? = null
+
+        val averageFilter = refs.settings.averageFilterCategoryIds.toSet()
+        val averageFilterMode = refs.settings.averageFilterMode
 
         val byCategory = HashMap<String, Long>()
         val byDay = HashMap<LocalDate, Long>()
@@ -236,7 +265,12 @@ class GetDashboardSummaryUseCase(
             when {
                 isThisMonth -> {
                     expense += inBase
-                    if (record.date <= now) monthToDateExpense += inBase
+                    if (record.date <= now) {
+                        monthToDateExpense += inBase
+                        if (countsTowardAverage(record.categoryId, averageFilter, averageFilterMode)) {
+                            filteredMonthToDateExpense += inBase
+                        }
+                    }
                     if (record.date == now) todaySpent += inBase
                     byCategory[record.categoryId] = (byCategory[record.categoryId] ?: 0L) + inBase
                 }
@@ -260,7 +294,10 @@ class GetDashboardSummaryUseCase(
                 count = records.count { YearMonth.from(it.date) == month },
             ),
             todaySpentMinor = todaySpent,
-            dailyAverageMinor = divideRounded(monthToDateExpense, averageDays),
+            dailyAverageMinor = divideRounded(filteredMonthToDateExpense, averageDays),
+            averageFilterActive = averageFilter.isNotEmpty(),
+            averageFilterCategoryCount = averageFilter.size,
+            averageFilterMode = averageFilterMode,
             averageDays = averageDays,
             monthToDateExpenseMinor = monthToDateExpense,
             previousMonthToDateExpenseMinor = previousToDate,
@@ -349,6 +386,28 @@ class GetDashboardSummaryUseCase(
     }
 
     /**
+     * Whether one expense belongs in the daily average.
+     *
+     * An empty selection means "no filter" in **both** modes. Reading an empty `INCLUDE`
+     * list literally would report an average of zero, which the user would read as a
+     * broken figure rather than as a filter waiting to be filled in.
+     *
+     * Matching is on the main category only. A subcategory follows its parent, which is
+     * what someone excluding "Bills" means by it.
+     */
+    private fun countsTowardAverage(
+        categoryId: String,
+        selected: Set<String>,
+        mode: AverageFilterMode,
+    ): Boolean {
+        if (selected.isEmpty()) return true
+        return when (mode) {
+            AverageFilterMode.INCLUDE -> categoryId in selected
+            AverageFilterMode.EXCLUDE -> categoryId !in selected
+        }
+    }
+
+    /**
      * How many days the average should be divided by.
      *
      * Normally the days elapsed this month. For someone who first recorded something
@@ -357,6 +416,11 @@ class GetDashboardSummaryUseCase(
      *
      * A record dated in the future cannot shorten the span, so a mistyped year cannot
      * inflate the average.
+     *
+     * Deliberately blind to the category filter. Narrowing the divisor to only the days
+     * that had a matching expense would report an average over days the user did not
+     * live — and excluding a category is a statement about what to count, not about
+     * which days happened.
      */
     private fun averageDivisor(
         earliest: LocalDate?,

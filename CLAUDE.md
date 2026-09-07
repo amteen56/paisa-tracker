@@ -182,7 +182,7 @@ data to `backup/` before a Replace.
 
 **Add a screen** — add a route to `ui/navigation/Routes.kt`; create
 `ui/screen/<feature>/<Name>Screen.kt` plus `<Name>ViewModel.kt` and `<Name>UiState.kt`; register
-it in `ExpenseNavHost.kt`; add the factory to `ViewModelFactories.kt`. Handle the empty state.
+it in `PaisaNavHost.kt`; add the factory to `ViewModelFactories.kt`. Handle the empty state.
 
 **Add a persisted field** — add it to the domain model, then to the DTO with a default value so
 old files still parse, then update the mapper. If old files cannot parse with a default, that is a

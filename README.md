@@ -310,6 +310,39 @@ an upgraded install would light every currency picker straight back up.
 
 ---
 
+## The daily average
+
+The dashboard's daily average is **this month's expense so far, divided by the days elapsed** — not a
+rolling window. It needs only the current month's shard, which is already loaded.
+
+The divisor is the days elapsed this month, unless the user has been tracking for fewer days than
+that. Someone who installed on the 25th is divided by the days since then; dividing by 25 would
+report an average over twenty days they were not recording anything.
+
+**Tap the tile to choose which categories count.** Rent, bills, school fees and other lumpy one-offs
+swamp a daily figure, and the question people actually ask is what an *ordinary* day costs. The
+dialog offers every main expense category with a mode toggle:
+
+| Mode | Meaning |
+|---|---|
+| **Left out** (default) | The ticked categories are excluded from the average |
+| **All that counts** | Only the ticked categories are counted |
+
+- An empty selection means **no filter, in either mode**. An emptied "All that counts" list would
+  otherwise report Rs. 0.00, which reads as a broken number rather than as a filter to fill in.
+- Matching is on the **main category**; a subcategory follows its parent.
+- The filter narrows **only the average**. The month's total, the month-on-month comparison line,
+  today's spend, the week's bars, the category breakdown and every budget are always the whole
+  month. When a filter is on, the tile's caption says so — an average that no longer divides into
+  the month total, with nothing explaining the gap, would read as a bug.
+- The **divisor ignores the filter**. Excluding a category is a statement about what to count, not
+  about which days happened, so days whose only spending was excluded still count as days.
+- The choice lives in `settings.json` (`averageFilterMode`, `averageFilterCategoryIds`) and survives
+  a restart. Ids of categories that no longer exist simply match nothing and are kept, so archiving
+  a category and restoring it does not lose the setting.
+
+---
+
 ## Budgets
 
 Budget usage is **derived from transactions**, never stored:
@@ -350,7 +383,9 @@ files.
   "settings": {
     "baseCurrencyCode": "PKR",
     "themeMode": "SYSTEM",
-    "budgetAlertsEnabled": true
+    "budgetAlertsEnabled": true,
+    "averageFilterMode": "EXCLUDE",
+    "averageFilterCategoryIds": ["cat-bills", "cat-rent"]
   },
   "currencies": [
     { "code": "PKR", "name": "Pakistani Rupee", "symbol": "Rs.", "decimalDigits": 2, "rateToBase": 1.0,   "archived": false },
